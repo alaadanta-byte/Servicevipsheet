@@ -206,6 +206,20 @@ CREATE TABLE IF NOT EXISTS employee_actions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 16. CUSTOM SHEETS DATA (Syncing all sheet records across devices)
+CREATE TABLE IF NOT EXISTS custom_sheets_data (
+    sheet_id TEXT PRIMARY KEY,
+    records JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 17. CUSTOM SHEETS CONFIG
+CREATE TABLE IF NOT EXISTS custom_sheets_config (
+    id TEXT PRIMARY KEY DEFAULT 'main_config',
+    config JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- =======================================================
 -- DISABLE ROW LEVEL SECURITY (RLS) FOR DIRECT ACCESS
 -- =======================================================
@@ -224,6 +238,8 @@ ALTER TABLE quick_links DISABLE ROW LEVEL SECURITY;
 ALTER TABLE employees DISABLE ROW LEVEL SECURITY;
 ALTER TABLE salary_payments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE employee_actions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_sheets_data DISABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_sheets_config DISABLE ROW LEVEL SECURITY;
 
 -- =======================================================
 -- SEED DEFAULT ADMIN USER

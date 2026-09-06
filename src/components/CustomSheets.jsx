@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from './ConfirmDialog';
+import { sheetsAPI } from '../services/api';
 import {
     DEFAULT_SHEETS,
     STORAGE_PREFIX,
@@ -308,7 +309,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     };
 
     // Load records whenever currentSheetId changes with automatic row sanitization
-    const loadCurrentSheetData = () => {
+    const loadCurrentSheetData = async () => {
         try {
             refreshAvailableAccounts();
             const key = `${STORAGE_PREFIX}${currentSheetId}`;
@@ -318,13 +319,18 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 if (Array.isArray(parsed)) {
                     const sanitized = parsed.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
                     setRecords(sanitized);
-                    return;
                 }
             }
-            setRecords([]);
+
+            // Sync with Supabase cloud
+            const cloudRecords = await sheetsAPI.getSheetRecords(currentSheetId);
+            if (cloudRecords && Array.isArray(cloudRecords)) {
+                const sanitized = cloudRecords.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                setRecords(sanitized);
+                refreshAllCounts();
+            }
         } catch (e) {
             console.error('Failed to load sheet data:', e);
-            setRecords([]);
         }
     };
 
@@ -357,7 +363,32 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         } catch (err) {
             console.warn('Auto-repair scan warning:', err);
         }
+        sheetsAPI.getSheetsConfig().then(cfg => {
+            if (Array.isArray(cfg) && cfg.length > 0) {
+                setSheetsList(cfg);
+            }
+        });
     }, []);
+
+    // Periodic background sync across devices (every 3 seconds)
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            try {
+                const cloudRecords = await sheetsAPI.getSheetRecords(currentSheetId);
+                if (cloudRecords && Array.isArray(cloudRecords)) {
+                    const sanitized = cloudRecords.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                    setRecords(prev => {
+                        if (JSON.stringify(prev) !== JSON.stringify(sanitized)) {
+                            return sanitized;
+                        }
+                        return prev;
+                    });
+                    refreshAllCounts();
+                }
+            } catch {}
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [currentSheetId]);
 
     // Close duration dropdown when clicking outside
     useEffect(() => {
@@ -381,12 +412,12 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setExpiryFilter('all');
     }, [currentSheetId]);
 
-    // Save records to LocalStorage with strict sanitization
+    // Save records to LocalStorage & Supabase cloud
     const saveRecords = (newRecords) => {
         try {
             const sanitized = newRecords.map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-            localStorage.setItem(`${STORAGE_PREFIX}${currentSheetId}`, JSON.stringify(sanitized));
             setRecords(sanitized);
+            sheetsAPI.saveSheetRecords(currentSheetId, sanitized);
             refreshAllCounts();
             if (currentSheetId === 'account_data') {
                 refreshAvailableAccounts();
@@ -618,7 +649,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             }));
 
             const updatedTrash = [...prepared, ...existingTrash].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-            localStorage.setItem(trashKey, JSON.stringify(updatedTrash));
+            sheetsAPI.saveSheetRecords('trash_data', updatedTrash);
             refreshAllCounts();
         } catch (err) {
             console.error('Error moving records to trash:', err);
@@ -685,7 +716,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             cleanRecord.updated_at = new Date().toISOString();
 
             const updatedTarget = [cleanRecord, ...targetRecords].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-            localStorage.setItem(targetKey, JSON.stringify(updatedTarget));
+            sheetsAPI.saveSheetRecords(targetSheetId, updatedTarget);
 
             // Remove from trash
             const updatedTrash = records.filter(r => r.id !== recordToRestore.id);
@@ -730,7 +761,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     } catch {}
                 }
                 const updatedDest = [...grouped[destId], ...currentDestData].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-                localStorage.setItem(key, JSON.stringify(updatedDest));
+                sheetsAPI.saveSheetRecords(destId, updatedDest);
             });
 
             // Remove all restored from trash
@@ -975,7 +1006,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         // Multi-sheet backup
                         Object.keys(parsed).forEach(key => {
                             if (Array.isArray(parsed[key])) {
-                                localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(parsed[key]));
+                                sheetsAPI.saveSheetRecords(key, parsed[key]);
                             }
                         });
                         loadCurrentSheetData();
@@ -1067,7 +1098,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             return s;
         });
         setSheetsList(updated);
-        localStorage.setItem('sv_sheets_config', JSON.stringify(updated));
+        sheetsAPI.saveSheetsConfig(updated);
         setShowRenameModal(false);
         showToast('تم تحديث اسم الشيت بنجاح ✓', 'success');
     };

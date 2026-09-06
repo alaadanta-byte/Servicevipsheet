@@ -1121,3 +1121,148 @@ export const employeeActionsAPI = {
         if (error) throw error;
     },
 };
+
+// ============ CUSTOM SHEETS & SYNC ============
+const SHEET_STORAGE_PREFIX = 'sv_custom_sheet_';
+const SHEETS_CONFIG_KEY = 'sv_sheets_config';
+
+export const sheetsAPI = {
+    async getSheetRecords(sheetId) {
+        let localRecords = [];
+        try {
+            const raw = localStorage.getItem(`${SHEET_STORAGE_PREFIX}${sheetId}`);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) localRecords = parsed;
+            }
+        } catch {}
+
+        if (isConfigured) {
+            try {
+                const { data, error } = await supabase
+                    .from('custom_sheets_data')
+                    .select('*')
+                    .eq('sheet_id', sheetId)
+                    .maybeSingle();
+
+                if (!error && data && Array.isArray(data.records)) {
+                    try {
+                        localStorage.setItem(`${SHEET_STORAGE_PREFIX}${sheetId}`, JSON.stringify(data.records));
+                    } catch {}
+                    return data.records;
+                }
+
+                // If cloud is empty, but local has existing records, upload local records to cloud!
+                if (localRecords.length > 0) {
+                    await supabase.from('custom_sheets_data').upsert({
+                        sheet_id: sheetId,
+                        records: localRecords,
+                        updated_at: new Date().toISOString()
+                    });
+                }
+            } catch (err) {
+                console.warn(`Supabase getSheetRecords failed for ${sheetId}:`, err);
+            }
+        }
+        return localRecords;
+    },
+
+    async saveSheetRecords(sheetId, records) {
+        try {
+            localStorage.setItem(`${SHEET_STORAGE_PREFIX}${sheetId}`, JSON.stringify(records));
+        } catch (e) {
+            console.error('Error writing to localStorage:', e);
+        }
+
+        if (isConfigured) {
+            try {
+                await supabase.from('custom_sheets_data').upsert({
+                    sheet_id: sheetId,
+                    records,
+                    updated_at: new Date().toISOString()
+                });
+            } catch (err) {
+                console.warn(`Supabase saveSheetRecords failed for ${sheetId}:`, err);
+            }
+        }
+    },
+
+    async getAllSheetsData() {
+        if (!isConfigured) return {};
+        try {
+            const { data, error } = await supabase.from('custom_sheets_data').select('*');
+            if (!error && Array.isArray(data)) {
+                const map = {};
+                data.forEach(row => {
+                    if (row.sheet_id && Array.isArray(row.records)) {
+                        map[row.sheet_id] = row.records;
+                        try {
+                            localStorage.setItem(`${SHEET_STORAGE_PREFIX}${row.sheet_id}`, JSON.stringify(row.records));
+                        } catch {}
+                    }
+                });
+                return map;
+            }
+        } catch (e) {
+            console.warn('Failed getAllSheetsData:', e);
+        }
+        return {};
+    },
+
+    async getSheetsConfig() {
+        let localConfig = [];
+        try {
+            const raw = localStorage.getItem(SHEETS_CONFIG_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed) && parsed.length > 0) localConfig = parsed;
+            }
+        } catch {}
+
+        if (isConfigured) {
+            try {
+                const { data, error } = await supabase
+                    .from('custom_sheets_config')
+                    .select('*')
+                    .eq('id', 'main_config')
+                    .maybeSingle();
+
+                if (!error && data && Array.isArray(data.config) && data.config.length > 0) {
+                    try {
+                        localStorage.setItem(SHEETS_CONFIG_KEY, JSON.stringify(data.config));
+                    } catch {}
+                    return data.config;
+                }
+
+                if (localConfig.length > 0) {
+                    await supabase.from('custom_sheets_config').upsert({
+                        id: 'main_config',
+                        config: localConfig,
+                        updated_at: new Date().toISOString()
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed getSheetsConfig:', e);
+            }
+        }
+        return localConfig;
+    },
+
+    async saveSheetsConfig(config) {
+        try {
+            localStorage.setItem(SHEETS_CONFIG_KEY, JSON.stringify(config));
+        } catch {}
+        if (isConfigured) {
+            try {
+                await supabase.from('custom_sheets_config').upsert({
+                    id: 'main_config',
+                    config,
+                    updated_at: new Date().toISOString()
+                });
+            } catch (e) {
+                console.warn('Failed saveSheetsConfig:', e);
+            }
+        }
+    }
+};
+

@@ -9,7 +9,8 @@ import {
     walletsAPI,
     customersAPI,
     sectionsAPI,
-    problemsAPI
+    problemsAPI,
+    sheetsAPI
 } from '../services/api';
 
 const DataContext = createContext();
@@ -59,6 +60,8 @@ const REALTIME_TABLES = [
     'salary_payments',
     'employee_actions',
     'users',
+    'custom_sheets_data',
+    'custom_sheets_config'
 ];
 
 export const DataProvider = ({ children }) => {
@@ -197,7 +200,9 @@ export const DataProvider = ({ children }) => {
                 walletsAPI.getAll(),
                 walletsAPI.getTransactions(),
                 sectionsAPI.getAll(),
-                problemsAPI.getAll()
+                problemsAPI.getAll(),
+                sheetsAPI.getAllSheetsData(),
+                sheetsAPI.getSheetsConfig()
             ]);
 
             setSales(salesData);
