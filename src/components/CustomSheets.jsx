@@ -1237,12 +1237,62 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
         // Sorting
         result = [...result].sort((a, b) => {
+            if (sortBy.field === 'created_at' || sortBy.field === 'email' || sortBy.field === 'order' || sortBy.field === 'rowNumber') {
+                const getRecordTimestamp = (rec) => {
+                    if (rec.created_at) {
+                        const t = new Date(rec.created_at).getTime();
+                        if (!isNaN(t) && t > 0) return t;
+                    }
+                    if (typeof rec.id === 'string' && rec.id.startsWith('REC-')) {
+                        const parts = rec.id.split('-');
+                        if (parts.length >= 2) {
+                            const num = Number(parts[1]);
+                            if (!isNaN(num) && num > 1000000000000) return num;
+                        }
+                    }
+                    if (rec.accountCreatedDate) {
+                        const t = new Date(rec.accountCreatedDate).getTime();
+                        if (!isNaN(t) && t > 0) return t;
+                    }
+                    if (rec.startDate) {
+                        const t = new Date(rec.startDate).getTime();
+                        if (!isNaN(t) && t > 0) return t;
+                    }
+                    return 0;
+                };
+                const timeA = getRecordTimestamp(a);
+                const timeB = getRecordTimestamp(b);
+                if (timeA !== timeB) {
+                    return sortBy.asc ? (timeA - timeB) : (timeB - timeA);
+                }
+                return sortBy.asc ? (a._originalIndex - b._originalIndex) : (b._originalIndex - a._originalIndex);
+            }
+
             if (sortBy.field === 'deletedAt') {
                 const timeA = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
                 const timeB = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
                 if (timeA < timeB) return sortBy.asc ? -1 : 1;
                 if (timeA > timeB) return sortBy.asc ? 1 : -1;
                 return 0;
+            }
+            if (sortBy.field === 'accountCreatedDate') {
+                const getAccountDate = (rec) => {
+                    if (rec.accountCreatedDate) {
+                        const t = new Date(rec.accountCreatedDate).getTime();
+                        if (!isNaN(t) && t > 0) return t;
+                    }
+                    if (rec.created_at) {
+                        const t = new Date(rec.created_at).getTime();
+                        if (!isNaN(t) && t > 0) return t;
+                    }
+                    return 0;
+                };
+                const timeA = getAccountDate(a);
+                const timeB = getAccountDate(b);
+                if (timeA !== timeB) {
+                    return sortBy.asc ? (timeA - timeB) : (timeB - timeA);
+                }
+                return sortBy.asc ? (a._originalIndex - b._originalIndex) : (b._originalIndex - a._originalIndex);
             }
             if (sortBy.field === 'accountReminderDays') {
                 const daysA = calculateAccountReminder(a.accountCreatedDate, a.reminderDays, a.created_at).days ?? -999999;
@@ -1616,8 +1666,21 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         )}
                     </div>
 
-                    {/* Page Sizing */}
-                    <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+                    {/* Sorting & Page Sizing */}
+                    <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+                        {/* Chronological Sort Toggle Button */}
+                        <button
+                            onClick={() => setSortBy(prev => ({
+                                field: 'created_at',
+                                asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                            }))}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition shadow-sm select-none cursor-pointer"
+                            title="انقر لتبديل ترتيب البيانات من الأحدث للأقدم أو من الأقدم للأحدث"
+                        >
+                            <i className={`fa-solid ${(sortBy.field === 'created_at' || sortBy.field === 'email') && sortBy.asc ? 'fa-arrow-up-wide-short' : 'fa-arrow-down-wide-short'} text-xs`}></i>
+                            <span>{(sortBy.field === 'created_at' || sortBy.field === 'email') && sortBy.asc ? 'الترتيب: من الأقدم للأحدث' : 'الترتيب: من الأحدث للأقدم'}</span>
+                        </button>
+
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-400 font-bold hidden sm:inline">عرض:</span>
                             <select
@@ -1626,7 +1689,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     setPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value));
                                     setCurrentPage(1);
                                 }}
-                                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none"
+                                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
                             >
                                 <option value={10}>10</option>
                                 <option value={25}>25</option>
@@ -1645,14 +1708,38 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     <table className="w-full text-right text-[11px] border-collapse">
                         <thead>
                             <tr className="bg-slate-50/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/80 font-bold select-none">
-                                <th className="px-1 py-1.5 w-7 text-center text-[10px]">#</th>
                                 <th
-                                    onClick={() => setSortBy({ field: 'email', asc: sortBy.field === 'email' ? !sortBy.asc : true })}
-                                    className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                    onClick={() => setSortBy(prev => ({
+                                        field: 'created_at',
+                                        asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                                    }))}
+                                    className="px-1.5 py-1.5 min-w-[50px] text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                    title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
+                                >
+                                    <div className="flex items-center justify-center gap-1">
+                                        <span className="font-bold text-[11px]">#</span>
+                                        <i className={`fa-solid text-[9px] transition-colors ${
+                                            (sortBy.field === 'created_at' || sortBy.field === 'email')
+                                                ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                        }`}></i>
+                                    </div>
+                                </th>
+                                <th
+                                    onClick={() => setSortBy(prev => ({
+                                        field: 'created_at',
+                                        asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                                    }))}
+                                    className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                    title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
                                 >
                                     <div className="flex items-center gap-1">
                                         <span>البريد الإلكتروني</span>
-                                        <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
+                                        <i className={`fa-solid text-[9px] transition-colors ${
+                                            (sortBy.field === 'created_at' || sortBy.field === 'email')
+                                                ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                        }`}></i>
                                     </div>
                                 </th>
                                 <th className="px-1 py-1.5">الباسورد (1)</th>
