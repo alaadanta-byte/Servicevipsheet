@@ -271,7 +271,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authent
 UPDATE users 
 SET username = 'Admin@servicevip.com',
     email = 'Admin@servicevip.com',
-    password = 'Service2030@',
+    password = '01028886947Aa@',
     role = 'admin',
     permissions = '["all"]'::jsonb
 WHERE username ILIKE 'support@servicevip.com' 
@@ -288,7 +288,7 @@ INSERT INTO users (username, email, password, role, permissions)
 VALUES (
     'Admin@servicevip.com',
     'Admin@servicevip.com',
-    'Service2030@',
+    '01028886947Aa@',
     'admin',
     '["all"]'::jsonb
 )

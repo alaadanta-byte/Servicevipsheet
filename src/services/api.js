@@ -29,7 +29,7 @@ export const getLocalUsers = () => {
                         if (!adminFound) {
                             u.username = 'Admin@servicevip.com';
                             u.email = 'Admin@servicevip.com';
-                            u.password = 'Service2030@';
+                            u.password = '01028886947Aa@';
                             u.role = 'admin';
                             u.permissions = ['all'];
                             adminFound = true;
@@ -41,7 +41,7 @@ export const getLocalUsers = () => {
                         id: 'admin_root',
                         username: 'Admin@servicevip.com',
                         email: 'Admin@servicevip.com',
-                        password: 'Service2030@',
+                        password: '01028886947Aa@',
                         role: 'admin',
                         permissions: ['all'],
                         created_at: new Date().toISOString()
@@ -60,7 +60,7 @@ export const getLocalUsers = () => {
             id: 'admin_root',
             username: 'Admin@servicevip.com',
             email: 'Admin@servicevip.com',
-            password: 'Service2030@',
+            password: '01028886947Aa@',
             role: 'admin',
             permissions: ['all'],
             created_at: new Date().toISOString()
