@@ -267,7 +267,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authent
 -- =======================================================
 -- SEED & UPDATE DEFAULT ADMIN USER
 -- =======================================================
--- تحديث حساب الأدمن الحالي إن وجد
+-- 1. تحديث أي حساب أدمن سابق للبيانات الجديدة
 UPDATE users 
 SET username = 'Admin@servicevip.com',
     email = 'Admin@servicevip.com',
@@ -278,7 +278,12 @@ WHERE username ILIKE 'support@servicevip.com'
    OR email ILIKE 'support@servicevip.com'
    OR (role = 'admin' AND (username ILIKE 'admin' OR email ILIKE 'admin%'));
 
--- إضافة أو تحديث الأدمن بالبيانات الجديدة
+-- 2. حذف وإلغاء أي حساب قديم متبقٍ باسم support@servicevip.com
+DELETE FROM users 
+WHERE (username ILIKE 'support@servicevip.com' OR email ILIKE 'support@servicevip.com')
+  AND username NOT ILIKE 'Admin@servicevip.com';
+
+-- 3. إضافة أو تثبيت الأدمن الجديد بالبيانات الصحيحة
 INSERT INTO users (username, email, password, role, permissions)
 VALUES (
     'Admin@servicevip.com',
@@ -292,4 +297,5 @@ SET password = EXCLUDED.password,
     email = EXCLUDED.email,
     role = EXCLUDED.role,
     permissions = EXCLUDED.permissions;
+
 

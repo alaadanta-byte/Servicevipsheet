@@ -11,14 +11,21 @@ export const getLocalUsers = () => {
     try {
         const stored = localStorage.getItem(USERS_STORAGE_KEY);
         if (stored) {
-            const parsed = JSON.parse(stored);
+            let parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                // Ensure the main Admin has the requested email 'Admin@servicevip.com' and password 'Service2030@'
+                // إلغاء وحذف أي حسابات قديمة باسم support@servicevip.com نهائياً
+                parsed = parsed.filter(u => {
+                    const uName = (u.username || '').toLowerCase();
+                    const uEmail = (u.email || '').toLowerCase();
+                    return uName !== 'support@servicevip.com' && uEmail !== 'support@servicevip.com';
+                });
+
+                // التأكد من تسجيل حساب الأدمن الجديد وحيداً بصلاحيات كاملة
                 let adminFound = false;
                 parsed.forEach(u => {
                     const uName = (u.username || '').toLowerCase();
                     const uEmail = (u.email || '').toLowerCase();
-                    if (uName === 'admin' || uName === 'support@servicevip.com' || uEmail === 'support@servicevip.com' || uName === 'admin@servicevip.com' || uEmail === 'admin@servicevip.com' || u.role === 'admin') {
+                    if (uName === 'admin@servicevip.com' || uEmail === 'admin@servicevip.com' || u.role === 'admin' || u.id === 'admin_root') {
                         if (!adminFound) {
                             u.username = 'Admin@servicevip.com';
                             u.email = 'Admin@servicevip.com';
