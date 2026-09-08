@@ -195,18 +195,22 @@ export const authAPI = {
                     .from('users')
                     .select('*')
                     .eq('token', token)
-                    .single();
+                    .maybeSingle();
                 if (!error && data) {
                     return {
                         id: data.id,
                         username: data.username,
+                        email: data.email || data.username,
                         role: data.role,
                         permissions: data.permissions || [],
                         base_salary: data.base_salary,
                         vodafone_cash: data.vodafone_cash
                     };
                 }
-            } catch {}
+                return null;
+            } catch {
+                return null;
+            }
         }
 
         const localUsers = getLocalUsers();
@@ -215,6 +219,7 @@ export const authAPI = {
             return {
                 id: found.id,
                 username: found.username,
+                email: found.email || found.username,
                 role: found.role || 'moderator',
                 permissions: found.permissions || [],
                 base_salary: found.base_salary || 0,
@@ -237,6 +242,24 @@ export const authAPI = {
             delete found.token;
             saveLocalUsers(localUsers);
         }
+    },
+
+    async logoutAll() {
+        if (isConfigured) {
+            try {
+                await supabase
+                    .from('users')
+                    .update({ token: null })
+                    .not('id', 'is', null);
+            } catch (e) {
+                console.warn('Supabase logoutAll fallback:', e);
+            }
+        }
+        const localUsers = getLocalUsers();
+        localUsers.forEach(u => {
+            delete u.token;
+        });
+        saveLocalUsers(localUsers);
     }
 };
 
@@ -884,6 +907,10 @@ export const usersAPI = {
         const localUsers = getLocalUsers();
         const filtered = localUsers.filter(u => String(u.id) !== String(id));
         saveLocalUsers(filtered);
+    },
+
+    async logoutAll() {
+        return authAPI.logoutAll();
     }
 };
 

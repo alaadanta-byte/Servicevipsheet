@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect, useRef } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext();
@@ -6,14 +6,13 @@ const SESSION_USER_KEY = 'service-vip_session_user';
 const SESSION_TOKEN_KEY = 'service-vip_session_token';
 
 export const AuthProvider = ({ children }) => {
-    // البدء دائماً بحالة فارغة null عند فتح المتصفح/المشروع لمنع الدخول التلقائي
+    // البدء بحالة فارغة أو استعادة الجلسة فقط إذا وجد توكن في المتصفح الحالي
     const [user, setUser] = useState(() => {
         try {
-            // مسح أي تسجيل دخول تلقائي قديم من localStorage لضمان طلب تسجيل الدخول دائماً
+            // مسح أي توكن قديم من localStorage لضمان عدم وجود تسجيل دخول غير مصرح به
             localStorage.removeItem('service-vip_user');
             localStorage.removeItem('service-vip_token');
 
-            // استعادة الجلسة فقط إذا كانت نافذة المتصفح الحالية قد سجلت دخول بالفعل
             const sessionToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
             const sessionUser = sessionStorage.getItem(SESSION_USER_KEY);
             if (sessionToken && sessionUser) {
@@ -26,34 +25,86 @@ export const AuthProvider = ({ children }) => {
     });
 
     const [loading, setLoading] = useState(false);
-    const authChecked = useRef(false);
 
-    // التحقق من صحة التوكن في الجلسة النشطة
-    useEffect(() => {
-        if (authChecked.current) return;
-        authChecked.current = true;
+    // دالة تسجيل الخروج للجلسة الحالية
+    const logout = useCallback(async () => {
+        const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+        if (token) {
+            try { await authAPI.logout(token); } catch { }
+        }
+        sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        sessionStorage.removeItem(SESSION_USER_KEY);
+        localStorage.removeItem('service-vip_token');
+        localStorage.removeItem('service-vip_user');
+        setUser(null);
+    }, []);
 
-        const checkUser = async () => {
-            const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-            if (!token) {
+    // دالة تسجيل خروج جميع الجلسات من كافة الأجهزة والمتصفحات
+    const logoutAll = useCallback(async () => {
+        try {
+            await authAPI.logoutAll();
+        } catch (e) {
+            console.error('Logout all error:', e);
+        }
+        sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        sessionStorage.removeItem(SESSION_USER_KEY);
+        localStorage.removeItem('service-vip_token');
+        localStorage.removeItem('service-vip_user');
+        setUser(null);
+    }, []);
+
+    // التحقق من صحة وصلاحية التوكن مع الخادم
+    const verifySession = useCallback(async () => {
+        const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+        if (!token) {
+            setUser(null);
+            return false;
+        }
+
+        try {
+            const userData = await authAPI.checkAuth(token);
+            if (userData) {
+                setUser(userData);
+                sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(userData));
+                return true;
+            } else {
+                // التوكن تم إلغاؤه أو تسجيل خروجه في الخادم -> إخراج فوري
+                sessionStorage.removeItem(SESSION_TOKEN_KEY);
+                sessionStorage.removeItem(SESSION_USER_KEY);
+                localStorage.removeItem('service-vip_token');
+                localStorage.removeItem('service-vip_user');
                 setUser(null);
-                return;
+                return false;
             }
+        } catch (error) {
+            console.warn('Auth verify error:', error);
+            return false;
+        }
+    }, []);
 
-            try {
-                const userData = await authAPI.checkAuth(token);
-                if (userData) {
-                    setUser(userData);
-                    sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(userData));
-                } else {
-                    setUser(null);
-                }
-            } catch (error) {
-                console.warn('Auth check error:', error);
+    // فحص صلاحية الجلسة عند البدء، وعند الرجوع للتبويب، وبشكل دوري كل 30 ثانية
+    useEffect(() => {
+        verifySession();
+
+        const handleVisibilityOrFocus = () => {
+            if (document.visibilityState === 'visible') {
+                verifySession();
             }
         };
-        checkUser();
-    }, []);
+
+        window.addEventListener('focus', handleVisibilityOrFocus);
+        document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+        const timer = setInterval(() => {
+            verifySession();
+        }, 30000);
+
+        return () => {
+            window.removeEventListener('focus', handleVisibilityOrFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+            clearInterval(timer);
+        };
+    }, [verifySession]);
 
     const login = async (username, password) => {
         try {
@@ -71,18 +122,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = async () => {
-        const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
-        if (token) {
-            try { await authAPI.logout(token); } catch { }
-        }
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
-        sessionStorage.removeItem(SESSION_USER_KEY);
-        localStorage.removeItem('service-vip_token');
-        localStorage.removeItem('service-vip_user');
-        setUser(null);
-    };
-
     const hasPermission = (perm) => {
         if (!user) return false;
         if (user.role === 'admin' || (Array.isArray(user.permissions) && user.permissions.includes('all'))) return true;
@@ -91,7 +130,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, hasPermission, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, logoutAll, verifySession, hasPermission, loading }}>
             {children}
         </AuthContext.Provider>
     );

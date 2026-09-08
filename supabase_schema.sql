@@ -298,4 +298,5 @@ SET password = EXCLUDED.password,
     role = EXCLUDED.role,
     permissions = EXCLUDED.permissions;
 
-
+-- 4. إبطال وتسجيل خروج كافة الجلسات النشطة لجميع المستخدمين من جميع الأجهزة
+UPDATE users SET token = NULL;

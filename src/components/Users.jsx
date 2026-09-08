@@ -39,7 +39,7 @@ export const PERMISSIONS_SECTIONS = [
 export const ALL_PERMISSIONS = PERMISSIONS_SECTIONS.flatMap(s => s.permissions);
 
 export default function Users () {
-    const { user: authUser } = useAuth();
+    const { user: authUser, logoutAll } = useAuth();
     const { showConfirm, showAlert } = useConfirm();
 
     const [users, setUsers] = useState([]);
@@ -219,6 +219,24 @@ export default function Users () {
         }
     };
 
+    // تسجيل خروج جميع الجلسات النشطة من كافة الأجهزة
+    const handleLogoutAll = async () => {
+        const confirmed = await showConfirm({
+            title: 'تسجيل خروج جميع الجلسات',
+            message: 'هل أنت متأكد من إنهاء وتسجيل خروج جميع الجلسات المفتوحة على الموقع من كافة الأجهزة والمتصفحات؟ سيتم إخراج جميع الحسابات فوراً لشاشة تسجيل الدخول.',
+            confirmText: 'نعم، إخراج كافة الجلسات',
+            cancelText: 'إلغاء',
+            type: 'danger'
+        });
+        if (!confirmed) return;
+
+        try {
+            await logoutAll();
+        } catch (e) {
+            console.error('Logout all error:', e);
+        }
+    };
+
     // شارة الدور
     const renderRoleBadge = (role) => {
         switch (role) {
@@ -295,13 +313,24 @@ export default function Users () {
                     </div>
                 </div>
 
-                <button
-                    onClick={handleOpenAdd}
-                    className="inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
-                >
-                    <i className="fa-solid fa-user-plus text-base"></i>
-                    <span>إضافة مستخدم جديد</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        onClick={handleLogoutAll}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/80 font-bold text-sm shadow-sm transition-all duration-200 cursor-pointer"
+                        title="تسجيل خروج جميع الجلسات النشطة من كل الأجهزة"
+                    >
+                        <i className="fa-solid fa-arrow-right-from-bracket text-base"></i>
+                        <span>تسجيل خروج جميع الجلسات</span>
+                    </button>
+
+                    <button
+                        onClick={handleOpenAdd}
+                        className="inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                    >
+                        <i className="fa-solid fa-user-plus text-base"></i>
+                        <span>إضافة مستخدم جديد</span>
+                    </button>
+                </div>
             </div>
 
             {/* KPI Cards */}
