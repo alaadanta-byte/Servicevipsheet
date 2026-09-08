@@ -1709,7 +1709,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             {/* Data Table */}
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-right text-[11px] border-collapse">
+                    <table className="w-full text-right text-[10.5px] border-collapse">
                         <thead>
                             <tr className="bg-slate-50/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/80 font-bold select-none">
                                 <th
@@ -1717,12 +1717,12 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         field: 'created_at',
                                         asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
                                     }))}
-                                    className="px-1.5 py-1.5 min-w-[50px] text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                    className="px-1 py-1 min-w-[36px] text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
                                     title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
                                 >
-                                    <div className="flex items-center justify-center gap-1">
-                                        <span className="font-bold text-[11px]">#</span>
-                                        <i className={`fa-solid text-[9px] transition-colors ${
+                                    <div className="flex items-center justify-center gap-0.5">
+                                        <span className="font-bold text-[10.5px]">#</span>
+                                        <i className={`fa-solid text-[8px] transition-colors ${
                                             (sortBy.field === 'created_at' || sortBy.field === 'email')
                                                 ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
                                                 : 'fa-sort text-slate-400 group-hover:text-indigo-500'
@@ -1734,7 +1734,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         field: 'created_at',
                                         asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
                                     }))}
-                                    className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                    className="px-1 py-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
                                     title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
                                 >
                                     <div className="flex items-center gap-1">
@@ -1746,8 +1746,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         }`}></i>
                                     </div>
                                 </th>
-                                <th className="px-1 py-1.5">الباسورد (1)</th>
-                                <th className="px-1 py-1.5">الباسورد (2)</th>
+                                <th className="px-1 py-1">الباسورد (1)</th>
+                                <th className="px-1 py-1">الباسورد (2)</th>
                                 {isTrashSheet ? (
                                     <>
                                         <th
@@ -1782,7 +1782,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     <>
                                         <th
                                             onClick={() => setSortBy({ field: 'serviceType', asc: sortBy.field === 'serviceType' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
                                         >
                                             <div className="flex items-center gap-1">
                                                 <span>{currentSheetId === 'merchant_data' ? 'اسم التاجر' : 'الخدمة'}</span>
@@ -1791,7 +1791,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                         <th
                                             onClick={() => setSortBy({ field: 'duration', asc: sortBy.field === 'duration' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
                                         >
                                             <div className="flex items-center gap-1">
                                                 <span>مدة الاشتراك</span>
@@ -1800,7 +1800,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                         <th
                                             onClick={() => setSortBy({ field: 'remainingDays', asc: sortBy.field === 'remainingDays' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
                                         >
                                             <div className="flex items-center gap-1">
                                                 <span>المدة المتبقية</span>
@@ -1810,7 +1810,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         {currentSheetId !== 'merchant_data' && (
                                             <th
                                                 onClick={() => setSortBy({ field: 'deviceType', asc: sortBy.field === 'deviceType' ? !sortBy.asc : true })}
-                                                className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                                className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
                                             >
                                                 <div className="flex items-center gap-1">
                                                     <span>نوع الاشتراك</span>
@@ -1820,7 +1820,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         )}
                                         <th
                                             onClick={() => setSortBy({ field: 'paymentStatus', asc: sortBy.field === 'paymentStatus' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
                                         >
                                             <div className="flex items-center gap-1">
                                                 <span>حالة الدفع</span>
@@ -1873,7 +1873,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                     </>
                                 )}
-                                <th className="px-1 py-1.5 text-center w-12 text-[11px]">إجراءات</th>
+                                <th className="px-1 py-1.5 text-center min-w-[56px] text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80">إجراءات</th>
                             </tr>
                         </thead>
 
@@ -1904,7 +1904,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     return (
                                         <tr
                                             key={rec.id}
-                                            className="transition-colors hover:bg-indigo-50/30 dark:hover:bg-slate-800/50"
+                                            className="transition-colors hover:bg-indigo-50/30 dark:hover:bg-slate-800/50 group"
                                         >
                                             {/* Row # */}
                                             <td className="px-1 py-1 text-center font-mono text-slate-400 text-[10px]">
@@ -1912,7 +1912,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             </td>
 
                                             {/* Email */}
-                                            <td className="px-1.5 py-1 font-medium">
+                                            <td className="px-1 py-1 font-medium">
                                                 {rec.email ? (
                                                     <div className="flex items-center gap-1 dir-ltr justify-end">
                                                         {rec.notes && (
@@ -1920,7 +1920,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 <i className="fa-solid fa-note-sticky text-[8px]"></i>
                                                             </span>
                                                         )}
-                                                        <span className="font-mono text-slate-800 dark:text-slate-200 select-all text-[11px] truncate max-w-[200px]" title={rec.email}>
+                                                        <span className="font-mono text-slate-800 dark:text-slate-200 select-all text-[10.5px] truncate max-w-[180px]" title={rec.email}>
                                                             {rec.email}
                                                         </span>
                                                         <button
@@ -2056,7 +2056,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             ) : isClientOrMerchant ? (
                                                 <>
                                                     {/* Service Type (الخدمة أو اسم التاجر) */}
-                                                    <td className="px-1.5 py-1 font-medium">
+                                                    <td className="px-1 py-1 font-medium">
                                                         {(() => {
                                                             const sType = rec.serviceType || '';
                                                             if (!sType) return <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>;
@@ -2098,7 +2098,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         })()}
                                                     </td>
 
-                                                    <td className="px-1.5 py-1 font-medium">
+                                                    <td className="px-1 py-1 font-medium">
                                                         {rec.duration ? (
                                                             <div className="flex items-center gap-1">
                                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/60 whitespace-nowrap">
@@ -2118,7 +2118,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         )}
                                                     </td>
                                                     {/* Remaining Time (المدة المتبقية) */}
-                                                    <td className="px-1.5 py-1 font-medium">
+                                                    <td className="px-1 py-1 font-medium">
                                                         {(() => {
                                                             const remaining = calculateRemainingTime(rec.startDate, rec.duration, rec.created_at);
                                                             if (remaining.status === 'none') {
@@ -2166,7 +2166,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </td>
                                                     {/* Device Type (نوع الاشتراك: جهاز ولا جهازين) */}
                                                     {currentSheetId !== 'merchant_data' && (
-                                                        <td className="px-1.5 py-1 font-medium">
+                                                        <td className="px-1 py-1 font-medium">
                                                             {rec.deviceType === 'جهازين' ? (
                                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs whitespace-nowrap">
                                                                     <i className="fa-solid fa-laptop text-[8px]"></i>
@@ -2181,7 +2181,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         </td>
                                                     )}
                                                     {/* Payment Status (حالة الدفع: مدفوع / غير مدفوع) */}
-                                                    <td className="px-1.5 py-1 font-medium">
+                                                    <td className="px-1 py-1 font-medium">
                                                         {rec.paymentStatus === 'غير مدفوع' ? (
                                                             <button
                                                                 type="button"
@@ -2366,7 +2366,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className="px-1 py-1 text-center w-12">
+                                            <td className="px-1 py-1 text-center min-w-[56px] sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90 shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-100 dark:border-slate-800">
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
