@@ -573,7 +573,18 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
                                         {/* Duration & Dates & Device Type */}
                                         <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
                                             <div className="flex items-center gap-1.5">
-                                                <span>{item.sheetId === 'account_data' ? 'فترة التذكير: ' : 'المدة الأصلية: '}<b className="text-slate-800 dark:text-slate-200">{item.duration || (item.reminderDays ? `${item.reminderDays} يوم` : '-')}</b></span>
+                                                {item.serviceType && (
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                                        item.serviceType === 'Private'
+                                                            ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/70 dark:border-purple-800/60'
+                                                            : item.serviceType === 'Service VIP'
+                                                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/70 dark:border-amber-800/60'
+                                                            : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/60'
+                                                    }`}>
+                                                        <i className={`${item.serviceType === 'Private' ? 'fa-solid fa-lock' : item.serviceType === 'Service VIP' ? 'fa-solid fa-crown' : 'fa-solid fa-bolt'} ml-1 text-[9px]`}></i>
+                                                        {item.serviceType}
+                                                    </span>
+                                                )}
                                                 {item.deviceType && (
                                                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
                                                         item.deviceType === 'جهازين'
