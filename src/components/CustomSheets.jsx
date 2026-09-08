@@ -973,7 +973,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     : { 'الخدمة (Service)': r.serviceType || '' }),
                 'مدة الاشتراك (Duration)': r.duration || '',
                 'تاريخ بداية الاشتراك (Start Date)': r.startDate || '',
-                'نوع الاشتراك (Device Type)': r.deviceType || 'جهاز',
+                ...(currentSheetId !== 'merchant_data' ? { 'نوع الاشتراك (Device Type)': r.deviceType || 'جهاز' } : {}),
                 'حالة الدفع (Payment Status)': r.paymentStatus || 'مدفوع',
                 'بيانات الحساب (Account)': r.selectedAccount || '',
                 'ملاحظات': r.notes || '',
@@ -1807,15 +1807,17 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
                                             </div>
                                         </th>
-                                        <th
-                                            onClick={() => setSortBy({ field: 'deviceType', asc: sortBy.field === 'deviceType' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                <span>نوع الاشتراك</span>
-                                                <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
-                                            </div>
-                                        </th>
+                                        {currentSheetId !== 'merchant_data' && (
+                                            <th
+                                                onClick={() => setSortBy({ field: 'deviceType', asc: sortBy.field === 'deviceType' ? !sortBy.asc : true })}
+                                                className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>نوع الاشتراك</span>
+                                                    <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
+                                                </div>
+                                            </th>
+                                        )}
                                         <th
                                             onClick={() => setSortBy({ field: 'paymentStatus', asc: sortBy.field === 'paymentStatus' ? !sortBy.asc : true })}
                                             className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
@@ -1878,7 +1880,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                             {paginatedRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isTrashSheet ? 8 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data' ? 7 : 9))} className="p-12 text-center text-slate-400">
+                                    <td colSpan={isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data' ? 7 : 9)))} className="p-12 text-center text-slate-400">
                                         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
                                             <i className={`fa-solid ${isTrashSheet ? 'fa-trash-can text-rose-400' : 'fa-folder-open'}`}></i>
                                         </div>
@@ -2053,11 +2055,28 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 </>
                                             ) : isClientOrMerchant ? (
                                                 <>
-                                                    {/* Service Type (الخدمة) */}
+                                                    {/* Service Type (الخدمة أو اسم التاجر) */}
                                                     <td className="px-1.5 py-1 font-medium">
                                                         {(() => {
                                                             const sType = rec.serviceType || '';
                                                             if (!sType) return <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>;
+                                                            if (currentSheetId === 'merchant_data') {
+                                                                return (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border-amber-200/80 shadow-xs whitespace-nowrap">
+                                                                            <i className="fa-solid fa-store text-[8px] text-amber-500"></i>
+                                                                            <span>{sType}</span>
+                                                                        </span>
+                                                                        <button
+                                                                            onClick={() => handleCopy(sType, `st_${rec.id}`)}
+                                                                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
+                                                                            title="نسخ اسم التاجر"
+                                                                        >
+                                                                            <i className={`fa-solid ${copiedField === `st_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            }
                                                             const opt = SERVICE_TYPE_OPTIONS.find(o => o.value === sType);
                                                             const badgeClass = opt?.badge || 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/80';
                                                             const iconClass = opt?.icon || 'fa-solid fa-tag';
@@ -2070,7 +2089,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     <button
                                                                         onClick={() => handleCopy(sType, `st_${rec.id}`)}
                                                                         className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
-                                                                        title={currentSheetId === 'merchant_data' ? 'نسخ اسم التاجر' : 'نسخ نوع الخدمة'}
+                                                                        title="نسخ نوع الخدمة"
                                                                     >
                                                                         <i className={`fa-solid ${copiedField === `st_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                                     </button>
@@ -2146,19 +2165,21 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         })()}
                                                     </td>
                                                     {/* Device Type (نوع الاشتراك: جهاز ولا جهازين) */}
-                                                    <td className="px-1.5 py-1 font-medium">
-                                                        {rec.deviceType === 'جهازين' ? (
-                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs whitespace-nowrap">
-                                                                <i className="fa-solid fa-laptop text-[8px]"></i>
-                                                                <span>جهازين</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 shadow-xs whitespace-nowrap">
-                                                                <i className="fa-solid fa-mobile-screen text-[8px]"></i>
-                                                                <span>جهاز</span>
-                                                            </span>
-                                                        )}
-                                                    </td>
+                                                    {currentSheetId !== 'merchant_data' && (
+                                                        <td className="px-1.5 py-1 font-medium">
+                                                            {rec.deviceType === 'جهازين' ? (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs whitespace-nowrap">
+                                                                    <i className="fa-solid fa-laptop text-[8px]"></i>
+                                                                    <span>جهازين</span>
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 shadow-xs whitespace-nowrap">
+                                                                    <i className="fa-solid fa-mobile-screen text-[8px]"></i>
+                                                                    <span>جهاز</span>
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    )}
                                                     {/* Payment Status (حالة الدفع: مدفوع / غير مدفوع) */}
                                                     <td className="px-1.5 py-1 font-medium">
                                                         {rec.paymentStatus === 'غير مدفوع' ? (
@@ -2529,108 +2550,127 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             {/* Duration & Start Date & Service Type (for Client / Merchant) */}
                             {isClientOrMerchant && (
                                 <>
-                                {/* قائمة بسهم: نوع الخدمة أو اسم التاجر (Private / Service VIP / Z Y N O R A) */}
-                                <div className="space-y-1.5" ref={serviceDropdownRef}>
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                                            {currentSheetId === 'merchant_data' ? 'اسم التاجر' : 'الخدمة / السيرفر'}
-                                        </label>
-                                        <span className="text-[11px] text-slate-400">
-                                            (Private / Service VIP / Z Y N O R A)
-                                        </span>
+                                {/* اسم التاجر (كتابة يدوية) أو نوع الخدمة (قائمة منسدلة) */}
+                                {currentSheetId === 'merchant_data' ? (
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                اسم التاجر
+                                            </label>
+                                            <span className="text-[11px] text-slate-400">
+                                                (Merchant Name)
+                                            </span>
+                                        </div>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-store absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                            <input
+                                                type="text"
+                                                value={formData.serviceType}
+                                                onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                                                placeholder="أدخل اسم التاجر..."
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                            />
+                                        </div>
                                     </div>
+                                ) : (
+                                    <div className="space-y-1.5" ref={serviceDropdownRef}>
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                الخدمة / السيرفر
+                                            </label>
+                                            <span className="text-[11px] text-slate-400">
+                                                (Private / Service VIP / Z Y N O R A)
+                                            </span>
+                                        </div>
 
-                                    <div className="relative">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsServiceDropdownOpen(prev => !prev)}
-                                            className={`w-full bg-white dark:bg-slate-850 border-2 ${
-                                                isServiceDropdownOpen
-                                                    ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
-                                                    : formData.serviceType
-                                                    ? 'border-indigo-400 dark:border-indigo-500 shadow-xs'
-                                                    : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
-                                            } rounded-2xl px-3.5 py-2.5 flex items-center justify-between transition cursor-pointer select-none`}
-                                        >
-                                            {/* سهم القائمة المنسدلة (Chevron Arrow on Left) */}
-                                            <div className="w-5 h-5 flex items-center justify-center text-slate-700 dark:text-slate-300">
-                                                <i className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isServiceDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`}></i>
-                                            </div>
+                                        <div className="relative">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsServiceDropdownOpen(prev => !prev)}
+                                                className={`w-full bg-white dark:bg-slate-850 border-2 ${
+                                                    isServiceDropdownOpen
+                                                        ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
+                                                        : formData.serviceType
+                                                        ? 'border-indigo-400 dark:border-indigo-500 shadow-xs'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                                } rounded-2xl px-3.5 py-2.5 flex items-center justify-between transition cursor-pointer select-none`}
+                                            >
+                                                {/* سهم القائمة المنسدلة (Chevron Arrow on Left) */}
+                                                <div className="w-5 h-5 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                                                    <i className={`fa-solid fa-chevron-down text-xs transition-transform duration-200 ${isServiceDropdownOpen ? 'rotate-180 text-indigo-600' : ''}`}></i>
+                                                </div>
 
-                                            {/* الخيار المختار على اليمين */}
-                                            <div className="flex items-center gap-2">
-                                                {formData.serviceType ? (
-                                                    (() => {
-                                                        const opt = SERVICE_TYPE_OPTIONS.find(o => o.value === formData.serviceType);
-                                                        return (
-                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border ${opt?.badge || 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
-                                                                <i className={`${opt?.icon || 'fa-solid fa-tag'} text-xs`}></i>
-                                                                <span>{formData.serviceType}</span>
-                                                            </span>
-                                                        );
-                                                    })()
-                                                ) : (
-                                                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                                                        <i className={`fa-solid ${currentSheetId === 'merchant_data' ? 'fa-store' : 'fa-layer-group'} text-slate-300 dark:text-slate-600`}></i>
-                                                        <span>
-                                                            {currentSheetId === 'merchant_data'
-                                                                ? 'اختر اسم التاجر (Private / Service VIP / Z Y N O R A)'
-                                                                : 'اختر الخدمة (Private / Service VIP / Z Y N O R A)'}
+                                                {/* الخيار المختار على اليمين */}
+                                                <div className="flex items-center gap-2">
+                                                    {formData.serviceType ? (
+                                                        (() => {
+                                                            const opt = SERVICE_TYPE_OPTIONS.find(o => o.value === formData.serviceType);
+                                                            return (
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border ${opt?.badge || 'bg-indigo-50 text-indigo-700 border-indigo-200'}`}>
+                                                                    <i className={`${opt?.icon || 'fa-solid fa-tag'} text-xs`}></i>
+                                                                    <span>{formData.serviceType}</span>
+                                                                </span>
+                                                            );
+                                                        })()
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                                            <i className="fa-solid fa-layer-group text-slate-300 dark:text-slate-600"></i>
+                                                            <span>اختر الخدمة (Private / Service VIP / Z Y N O R A)</span>
                                                         </span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </button>
+                                                    )}
+                                                </div>
+                                            </button>
 
-                                        {/* Dropdown Menu */}
-                                        {isServiceDropdownOpen && (
-                                            <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-40 animate-fade-in divide-y divide-slate-100 dark:divide-slate-800">
-                                                {formData.serviceType && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setFormData({ ...formData, serviceType: '' });
-                                                            setIsServiceDropdownOpen(false);
-                                                        }}
-                                                        className="w-full px-4 py-2.5 flex items-center justify-between transition text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 cursor-pointer"
-                                                    >
-                                                        <span>{currentSheetId === 'merchant_data' ? 'إلغاء التحديد (بدون تاجر)' : 'إلغاء التحديد (بدون خدمة)'}</span>
-                                                        <i className="fa-solid fa-xmark"></i>
-                                                    </button>
-                                                )}
-                                                {SERVICE_TYPE_OPTIONS.map(opt => {
-                                                    const isSelected = formData.serviceType === opt.value;
-                                                    return (
+                                            {/* Dropdown Menu */}
+                                            {isServiceDropdownOpen && (
+                                                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-40 animate-fade-in divide-y divide-slate-100 dark:divide-slate-800">
+                                                    {formData.serviceType && (
                                                         <button
-                                                            key={opt.value}
                                                             type="button"
                                                             onClick={() => {
-                                                                setFormData({ ...formData, serviceType: opt.value });
+                                                                setFormData({ ...formData, serviceType: '' });
                                                                 setIsServiceDropdownOpen(false);
                                                             }}
-                                                            className={`w-full px-4 py-3 flex items-center justify-between transition text-xs font-bold cursor-pointer ${
-                                                                isSelected
-                                                                    ? 'bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
-                                                                    : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
-                                                            }`}
+                                                            className="w-full px-4 py-2.5 flex items-center justify-between transition text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 cursor-pointer"
                                                         >
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`w-4 h-4 rounded-full flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white text-[9px]' : 'border border-slate-300 dark:border-slate-600'}`}>
-                                                                    {isSelected && <i className="fa-solid fa-check"></i>}
-                                                                </div>
-                                                                <span className="text-sm font-black">{opt.label}</span>
-                                                            </div>
-                                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border ${opt.badge}`}>
-                                                                <i className={opt.icon}></i>
-                                                                <span>{opt.label}</span>
-                                                            </span>
+                                                            <span>إلغاء التحديد (بدون خدمة)</span>
+                                                            <i className="fa-solid fa-xmark"></i>
                                                         </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                                    )}
+                                                    {SERVICE_TYPE_OPTIONS.map(opt => {
+                                                        const isSelected = formData.serviceType === opt.value;
+                                                        return (
+                                                            <button
+                                                                key={opt.value}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setFormData({ ...formData, serviceType: opt.value });
+                                                                    setIsServiceDropdownOpen(false);
+                                                                }}
+                                                                className={`w-full px-4 py-3 flex items-center justify-between transition text-xs font-bold cursor-pointer ${
+                                                                    isSelected
+                                                                        ? 'bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                                                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white text-[9px]' : 'border border-slate-300 dark:border-slate-600'}`}>
+                                                                        {isSelected && <i className="fa-solid fa-check"></i>}
+                                                                    </div>
+                                                                    <span className="text-sm font-black">{opt.label}</span>
+                                                                </div>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border ${opt.badge}`}>
+                                                                    <i className={opt.icon}></i>
+                                                                    <span>{opt.label}</span>
+                                                                </span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {/* Duration (Custom Dropdown matching design) */}
@@ -2746,39 +2786,41 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </div>
                                 </div>
 
-                                {/* نوع الاشتراك: جهاز ولا جهازين */}
-                                <div className="space-y-1.5 pt-1">
-                                    <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                                        نوع الاشتراك
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, deviceType: 'جهاز' })}
-                                            className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
-                                                formData.deviceType === 'جهاز' || !formData.deviceType
-                                                    ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
-                                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
-                                            }`}
-                                        >
-                                            <i className="fa-solid fa-mobile-screen text-base text-blue-500"></i>
-                                            <span className="text-sm">جهاز</span>
-                                        </button>
+                                {/* نوع الاشتراك: جهاز ولا جهازين (خاص ببيانات العميل فقط) */}
+                                {currentSheetId !== 'merchant_data' && (
+                                    <div className="space-y-1.5 pt-1">
+                                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                                            نوع الاشتراك
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, deviceType: 'جهاز' })}
+                                                className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
+                                                    formData.deviceType === 'جهاز' || !formData.deviceType
+                                                        ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-mobile-screen text-base text-blue-500"></i>
+                                                <span className="text-sm">جهاز</span>
+                                            </button>
 
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, deviceType: 'جهازين' })}
-                                            className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
-                                                formData.deviceType === 'جهازين'
-                                                    ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20'
-                                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
-                                            }`}
-                                        >
-                                            <i className="fa-solid fa-laptop text-base text-purple-500"></i>
-                                            <span className="text-sm">جهازين</span>
-                                        </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, deviceType: 'جهازين' })}
+                                                className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
+                                                    formData.deviceType === 'جهازين'
+                                                        ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20'
+                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-laptop text-base text-purple-500"></i>
+                                                <span className="text-sm">جهازين</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* حالة الدفع: مدفوع ولا غير مدفوع */}
                                 <div className="space-y-1.5 pt-1">
