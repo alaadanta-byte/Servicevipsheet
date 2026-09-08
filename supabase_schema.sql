@@ -40,11 +40,18 @@ CREATE TABLE IF NOT EXISTS inventory_sections (
 
 -- 4. ACCOUNTS (Inventory)
 CREATE TABLE IF NOT EXISTS accounts (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
     product_name TEXT,
     email TEXT,
     password TEXT,
+    two_fa TEXT DEFAULT '',
     status TEXT DEFAULT 'available',
+    allowed_uses INTEGER DEFAULT 1,
+    current_uses INTEGER DEFAULT 0,
+    created_by TEXT DEFAULT 'Admin',
+    is_workspace BOOLEAN DEFAULT false,
+    workspace_members INTEGER DEFAULT 0,
+    workspace_cost NUMERIC DEFAULT 0,
     notes TEXT DEFAULT '',
     buyer_name TEXT DEFAULT '',
     buyer_phone TEXT DEFAULT '',
@@ -61,6 +68,8 @@ CREATE TABLE IF NOT EXISTS customers (
     name TEXT NOT NULL,
     phone TEXT DEFAULT '',
     email TEXT DEFAULT '',
+    contact_channel TEXT DEFAULT 'واتساب',
+    last_order_date TIMESTAMPTZ DEFAULT NOW(),
     notes TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -221,38 +230,66 @@ CREATE TABLE IF NOT EXISTS custom_sheets_config (
 );
 
 -- =======================================================
--- DISABLE ROW LEVEL SECURITY (RLS) FOR DIRECT ACCESS
+-- DISABLE ROW LEVEL SECURITY (RLS) & ALLOW PUBLIC ACCESS
 -- =======================================================
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE inventory_sections DISABLE ROW LEVEL SECURITY;
-ALTER TABLE accounts DISABLE ROW LEVEL SECURITY;
-ALTER TABLE customers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE sales DISABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses DISABLE ROW LEVEL SECURITY;
-ALTER TABLE wallets DISABLE ROW LEVEL SECURITY;
-ALTER TABLE wallet_transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE attendance DISABLE ROW LEVEL SECURITY;
-ALTER TABLE problems DISABLE ROW LEVEL SECURITY;
-ALTER TABLE quick_links DISABLE ROW LEVEL SECURITY;
-ALTER TABLE employees DISABLE ROW LEVEL SECURITY;
-ALTER TABLE salary_payments DISABLE ROW LEVEL SECURITY;
-ALTER TABLE employee_actions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE custom_sheets_data DISABLE ROW LEVEL SECURITY;
-ALTER TABLE custom_sheets_config DISABLE ROW LEVEL SECURITY;
+DO $$
+DECLARE
+    tbl text;
+    tables text[] := ARRAY[
+        'users', 'products', 'inventory_sections', 'accounts', 'customers',
+        'sales', 'expenses', 'wallets', 'wallet_transactions', 'attendance',
+        'problems', 'quick_links', 'employees', 'salary_payments', 'employee_actions',
+        'custom_sheets_data', 'custom_sheets_config'
+    ];
+BEGIN
+    FOREACH tbl IN ARRAY tables LOOP
+        -- تعطيل RLS
+        EXECUTE format('ALTER TABLE IF EXISTS public.%I DISABLE ROW LEVEL SECURITY;', tbl);
+        
+        -- حذف السياسات القديمة إن وجدت
+        EXECUTE format('DROP POLICY IF EXISTS "Allow all for public" ON public.%I;', tbl);
+        
+        -- إنشاء سياسة وصول شاملة حتى لو تم تفعيل RLS مستقبلاً
+        EXECUTE format('CREATE POLICY "Allow all for public" ON public.%I FOR ALL TO public USING (true) WITH CHECK (true);', tbl);
+    END LOOP;
+END $$;
+
+-- منح كامل الصلاحيات لجميع الأدوار
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO anon, authenticated, service_role;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO anon, authenticated, service_role;
 
 -- =======================================================
--- SEED DEFAULT ADMIN USER
+-- SEED & UPDATE DEFAULT ADMIN USER
 -- =======================================================
+-- تحديث حساب الأدمن الحالي إن وجد
+UPDATE users 
+SET username = 'Admin@servicevip.com',
+    email = 'Admin@servicevip.com',
+    password = 'Service2030@',
+    role = 'admin',
+    permissions = '["all"]'::jsonb
+WHERE username ILIKE 'support@servicevip.com' 
+   OR email ILIKE 'support@servicevip.com'
+   OR (role = 'admin' AND (username ILIKE 'admin' OR email ILIKE 'admin%'));
+
+-- إضافة أو تحديث الأدمن بالبيانات الجديدة
 INSERT INTO users (username, email, password, role, permissions)
 VALUES (
-    'support@servicevip.com',
-    'support@servicevip.com',
+    'Admin@servicevip.com',
+    'Admin@servicevip.com',
     'Service2030@',
     'admin',
     '["all"]'::jsonb
 )
 ON CONFLICT (username) DO UPDATE 
 SET password = EXCLUDED.password,
+    email = EXCLUDED.email,
     role = EXCLUDED.role,
     permissions = EXCLUDED.permissions;
+

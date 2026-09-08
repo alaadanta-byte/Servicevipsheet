@@ -13,15 +13,15 @@ export const getLocalUsers = () => {
         if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                // Ensure the main Admin has the requested email 'support@servicevip.com' and password 'Service2030@'
+                // Ensure the main Admin has the requested email 'Admin@servicevip.com' and password 'Service2030@'
                 let adminFound = false;
                 parsed.forEach(u => {
                     const uName = (u.username || '').toLowerCase();
                     const uEmail = (u.email || '').toLowerCase();
-                    if (uName === 'admin' || uName === 'support@servicevip.com' || uEmail === 'support@servicevip.com' || u.role === 'admin') {
+                    if (uName === 'admin' || uName === 'support@servicevip.com' || uEmail === 'support@servicevip.com' || uName === 'admin@servicevip.com' || uEmail === 'admin@servicevip.com' || u.role === 'admin') {
                         if (!adminFound) {
-                            u.username = 'support@servicevip.com';
-                            u.email = 'support@servicevip.com';
+                            u.username = 'Admin@servicevip.com';
+                            u.email = 'Admin@servicevip.com';
                             u.password = 'Service2030@';
                             u.role = 'admin';
                             u.permissions = ['all'];
@@ -32,8 +32,8 @@ export const getLocalUsers = () => {
                 if (!adminFound) {
                     parsed.unshift({
                         id: 'admin_root',
-                        username: 'support@servicevip.com',
-                        email: 'support@servicevip.com',
+                        username: 'Admin@servicevip.com',
+                        email: 'Admin@servicevip.com',
                         password: 'Service2030@',
                         role: 'admin',
                         permissions: ['all'],
@@ -51,8 +51,8 @@ export const getLocalUsers = () => {
     const defaultAdmin = [
         {
             id: 'admin_root',
-            username: 'support@servicevip.com',
-            email: 'support@servicevip.com',
+            username: 'Admin@servicevip.com',
+            email: 'Admin@servicevip.com',
             password: 'Service2030@',
             role: 'admin',
             permissions: ['all'],
@@ -85,21 +85,33 @@ export const authAPI = {
 
         if (isConfigured) {
             try {
-                const { data, error } = await supabase
+                let { data, error } = await supabase
                     .from('users')
                     .select('*')
-                    .eq('username', cleanUsername)
-                    .single();
+                    .or(`username.ilike.${cleanUsername},email.ilike.${cleanUsername}`)
+                    .limit(1)
+                    .maybeSingle();
 
-                if (!error && data) {
-                    let bcrypt;
-                    try {
-                        bcrypt = await import('bcryptjs');
-                        if (bcrypt.default) bcrypt = bcrypt.default;
-                    } catch (e) {
-                        console.error('Bcrypt import error:', e);
+                if (error || !data) {
+                    const fallbackRes = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('username', cleanUsername)
+                        .maybeSingle();
+                    data = fallbackRes.data;
+                }
+
+                if (data) {
+                    let valid = (cleanPassword === data.password);
+                    if (!valid && data.password && data.password.startsWith('$2')) {
+                        try {
+                            let bcrypt = await import('bcryptjs');
+                            if (bcrypt.default) bcrypt = bcrypt.default;
+                            valid = await bcrypt.compare(cleanPassword, data.password);
+                        } catch (e) {
+                            console.error('Bcrypt import error:', e);
+                        }
                     }
-                    const valid = bcrypt ? await bcrypt.compare(cleanPassword, data.password) : (cleanPassword === data.password);
                     if (valid) {
                         const token = crypto.randomUUID() + '-' + Date.now();
                         await supabase.from('users').update({ token }).eq('id', data.id);
@@ -109,6 +121,7 @@ export const authAPI = {
                             user: {
                                 id: data.id,
                                 username: data.username,
+                                email: data.email || data.username,
                                 role: data.role,
                                 permissions: data.permissions || [],
                                 base_salary: data.base_salary,
@@ -462,15 +475,18 @@ export const customersAPI = {
             return existing.id;
         }
 
-        const id = 'CUS-' + Date.now();
-        await supabase.from('customers').insert({
-            id,
+        const { data: inserted, error: insertError } = await supabase.from('customers').insert({
             name: customer.name,
             phone: customer.phone || '',
             email: customer.email || '',
             contact_channel: customer.contactChannel || 'واتساب',
-        });
-        return id;
+            last_order_date: new Date().toISOString()
+        }).select().maybeSingle();
+
+        if (insertError) {
+            console.error('[Supabase] customersAPI.createOrUpdate insert error:', insertError);
+        }
+        return inserted?.id || null;
     },
 
     async updateLastOrder(id, email) {
@@ -1176,11 +1192,14 @@ export const sheetsAPI = {
 
         if (isConfigured) {
             try {
-                await supabase.from('custom_sheets_data').upsert({
+                const { error } = await supabase.from('custom_sheets_data').upsert({
                     sheet_id: sheetId,
                     records,
                     updated_at: new Date().toISOString()
                 });
+                if (error) {
+                    console.error(`[Supabase] saveSheetRecords error for "${sheetId}":`, error);
+                }
             } catch (err) {
                 console.warn(`Supabase saveSheetRecords failed for ${sheetId}:`, err);
             }
@@ -1254,11 +1273,14 @@ export const sheetsAPI = {
         } catch {}
         if (isConfigured) {
             try {
-                await supabase.from('custom_sheets_config').upsert({
+                const { error } = await supabase.from('custom_sheets_config').upsert({
                     id: 'main_config',
                     config,
                     updated_at: new Date().toISOString()
                 });
+                if (error) {
+                    console.error('[Supabase] saveSheetsConfig error:', error);
+                }
             } catch (e) {
                 console.warn('Failed saveSheetsConfig:', e);
             }
