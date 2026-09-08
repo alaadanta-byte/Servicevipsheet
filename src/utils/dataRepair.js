@@ -27,7 +27,7 @@ export const sanitizeRecord = (r, idx = 0) => {
     const rawStartDate = r.startDate ?? r.date ?? r['تاريخ البداية'] ?? r['تاريخ بداية الاشتراك'] ?? r['تاريخ الاشتراك'] ?? '';
     const rawDeviceType = r.deviceType ?? r['نوع الاشتراك'] ?? r['الأجهزة'] ?? r['الجهاز'] ?? '';
     const rawPaymentStatus = r.paymentStatus ?? r['حالة الدفع'] ?? r['الدفع'] ?? r.paymentState ?? '';
-    const rawServiceType = r.serviceType ?? r['الخدمة'] ?? r['نوع الخدمة'] ?? r['السيرفر'] ?? r.serverType ?? '';
+    const rawServiceType = r.serviceType ?? r['اسم التاجر'] ?? r['التاجر'] ?? r['الخدمة'] ?? r['نوع الخدمة'] ?? r['السيرفر'] ?? r.serverType ?? '';
     const rawVisa = r.visa ?? r['الفيزا'] ?? r['رقم البطاقة'] ?? r['البطاقة'] ?? '';
     const rawVisaAccount = r.visaAccount ?? r['حساب الفيزا'] ?? r['البنك'] ?? r['اسم البنك'] ?? '';
     const rawAccountCreatedDate = r.accountCreatedDate ?? r['تاريخ انشاء الحساب'] ?? r['تاريخ إنشاء الحساب'] ?? r['تاريخ الإنشاء'] ?? '';

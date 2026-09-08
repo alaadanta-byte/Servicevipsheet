@@ -968,7 +968,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 'البريد الإلكتروني (Email)': r.email || '',
                 'الباسورد الأول (Password 1)': r.password || '',
                 'الباسورد الثاني (Password 2)': r.password2 || '',
-                'الخدمة (Service)': r.serviceType || '',
+                ...(currentSheetId === 'merchant_data'
+                    ? { 'اسم التاجر (Merchant)': r.serviceType || '' }
+                    : { 'الخدمة (Service)': r.serviceType || '' }),
                 'مدة الاشتراك (Duration)': r.duration || '',
                 'تاريخ بداية الاشتراك (Start Date)': r.startDate || '',
                 'نوع الاشتراك (Device Type)': r.deviceType || 'جهاز',
@@ -1648,8 +1650,10 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder={
-                                isClientOrMerchant
-                                    ? "بحث في الإيميل، الباسورد، مدة الاشتراك..."
+                                currentSheetId === 'merchant_data'
+                                    ? "بحث في الإيميل، اسم التاجر، مدة الاشتراك..."
+                                    : currentSheetId === 'client_data'
+                                    ? "بحث في الإيميل، الخدمة، مدة الاشتراك..."
                                     : currentSheetId === 'account_data'
                                     ? "بحث في الإيميل، الباسورد، تاريخ الإنشاء، التذكير، الملاحظات..."
                                     : "بحث في الإيميل، الباسورد، الفاتورة، الفيزا، الملاحظات..."
@@ -1781,7 +1785,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
                                         >
                                             <div className="flex items-center gap-1">
-                                                <span>الخدمة</span>
+                                                <span>{currentSheetId === 'merchant_data' ? 'اسم التاجر' : 'الخدمة'}</span>
                                                 <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
                                             </div>
                                         </th>
@@ -2066,7 +2070,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     <button
                                                                         onClick={() => handleCopy(sType, `st_${rec.id}`)}
                                                                         className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
-                                                                        title="نسخ نوع الخدمة"
+                                                                        title={currentSheetId === 'merchant_data' ? 'نسخ اسم التاجر' : 'نسخ نوع الخدمة'}
                                                                     >
                                                                         <i className={`fa-solid ${copiedField === `st_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                                     </button>
@@ -2525,11 +2529,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             {/* Duration & Start Date & Service Type (for Client / Merchant) */}
                             {isClientOrMerchant && (
                                 <>
-                                {/* قائمة بسهم: نوع الخدمة (Private / Service VIP / Z Y N O R A) */}
+                                {/* قائمة بسهم: نوع الخدمة أو اسم التاجر (Private / Service VIP / Z Y N O R A) */}
                                 <div className="space-y-1.5" ref={serviceDropdownRef}>
                                     <div className="flex items-center justify-between">
                                         <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                                            الخدمة / السيرفر
+                                            {currentSheetId === 'merchant_data' ? 'اسم التاجر' : 'الخدمة / السيرفر'}
                                         </label>
                                         <span className="text-[11px] text-slate-400">
                                             (Private / Service VIP / Z Y N O R A)
@@ -2567,8 +2571,12 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     })()
                                                 ) : (
                                                     <span className="text-xs font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-                                                        <i className="fa-solid fa-layer-group text-slate-300 dark:text-slate-600"></i>
-                                                        <span>اختر الخدمة (Private / Service VIP / Z Y N O R A)</span>
+                                                        <i className={`fa-solid ${currentSheetId === 'merchant_data' ? 'fa-store' : 'fa-layer-group'} text-slate-300 dark:text-slate-600`}></i>
+                                                        <span>
+                                                            {currentSheetId === 'merchant_data'
+                                                                ? 'اختر اسم التاجر (Private / Service VIP / Z Y N O R A)'
+                                                                : 'اختر الخدمة (Private / Service VIP / Z Y N O R A)'}
+                                                        </span>
                                                     </span>
                                                 )}
                                             </div>
@@ -2586,7 +2594,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         }}
                                                         className="w-full px-4 py-2.5 flex items-center justify-between transition text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-400 cursor-pointer"
                                                     >
-                                                        <span>إلغاء التحديد (بدون خدمة)</span>
+                                                        <span>{currentSheetId === 'merchant_data' ? 'إلغاء التحديد (بدون تاجر)' : 'إلغاء التحديد (بدون خدمة)'}</span>
                                                         <i className="fa-solid fa-xmark"></i>
                                                     </button>
                                                 )}
