@@ -579,7 +579,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         const cleanPayload = currentSheetId === 'customers_data' ? {
             name: formData.name || '',
             phone: formData.phone || '',
-            deviceType: formData.deviceType || 'جهاز',
+            deviceType: formData.deviceType || '',
             notes: formData.notes || '',
             email: formData.email || '',
             password: '',
@@ -695,7 +695,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             serviceType: '',
             duration: '',
             startDate: '',
-            deviceType: 'جهاز',
+            deviceType: currentSheetId === 'customers_data' ? '' : 'جهاز',
             paymentStatus: 'مدفوع',
             selectedAccount: '',
             invoiceNumber: '',
@@ -1041,7 +1041,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     id: 'REC-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substring(2, 6),
                     name: parts[0] || '',
                     phone: parts[1] || '',
-                    deviceType: parts[2] || 'جهاز',
+                    deviceType: parts[2] || '',
                     notes: parts[3] || '',
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
@@ -1525,13 +1525,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
         if (isCustomersSheet) {
             const withPhone = records.filter(r => r.phone && r.phone.trim()).length;
-            const singleDevice = records.filter(r => (r.deviceType || 'جهاز').includes('جهاز') && !(r.deviceType || '').includes('جهازين')).length;
-            const dualDevice = records.filter(r => (r.deviceType || '').includes('جهازين')).length;
+            const withSubscription = records.filter(r => r.deviceType && r.deviceType.trim()).length;
+            const withNotes = records.filter(r => r.notes && r.notes.trim()).length;
             return {
                 total,
                 withPhone,
-                singleDevice,
-                dualDevice,
+                withSubscription,
+                withNotes,
                 nearCount: 0,
                 expiredCount: 0
             };
@@ -1639,21 +1639,21 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">اشتراك جهاز واحد</p>
-                                <h4 className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{stats.singleDevice}</h4>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">نوع الاشتراك مسجل</p>
+                                <h4 className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{stats.withSubscription}</h4>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl">
-                                <i className="fa-solid fa-mobile-screen"></i>
+                                <i className="fa-solid fa-tag"></i>
                             </div>
                         </div>
 
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">اشتراك جهازين</p>
-                                <h4 className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{stats.dualDevice}</h4>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">سجلات بملاحظات</p>
+                                <h4 className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{stats.withNotes}</h4>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl">
-                                <i className="fa-solid fa-laptop-mobile"></i>
+                                <i className="fa-solid fa-note-sticky"></i>
                             </div>
                         </div>
                     </>
@@ -1828,7 +1828,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             password2: '',
                                             duration: '',
                                             startDate: new Date().toISOString().slice(0, 10),
-                                            deviceType: 'جهاز',
+                                            deviceType: isCustomersSheet ? '' : 'جهاز',
                                             paymentStatus: 'مدفوع',
                                             selectedAccount: '',
                                             invoiceNumber: '',
@@ -2270,14 +2270,14 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                                                     {/* Device / Subscription Type */}
                                                     <td className="px-2.5 py-1.5">
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold border ${
-                                                            rec.deviceType === 'جهازين'
-                                                                ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60'
-                                                                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
-                         }`}>
-                                                            <i className={`fa-solid ${rec.deviceType === 'جهازين' ? 'fa-laptop-mobile' : 'fa-mobile-screen'} text-[9px]`}></i>
-                                                            <span>{rec.deviceType || 'جهاز'}</span>
-                                                        </span>
+                                                        {rec.deviceType ? (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold border bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/60 shadow-xs">
+                                                                <i className="fa-solid fa-tag text-[8.5px]"></i>
+                                                                <span>{rec.deviceType}</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
+                                                        )}
                                                     </td>
 
                                                     {/* Notes */}
@@ -2981,43 +2981,18 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </div>
 
                                     {/* Subscription Type */}
-                                    <div className="space-y-1.5">
-                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                                             نوع الاشتراك
                                         </label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, deviceType: 'جهاز' })}
-                                                className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
-                                                    formData.deviceType === 'جهاز' || !formData.deviceType
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
-                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
-                                                }`}
-                                            >
-                                                <i className="fa-solid fa-mobile-screen text-xs"></i>
-                                                <span>جهاز (1 جهاز)</span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, deviceType: 'جهازين' })}
-                                                className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
-                                                    formData.deviceType === 'جهازين'
-                                                        ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20'
-                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
-                                                }`}
-                                            >
-                                                <i className="fa-solid fa-laptop-mobile text-xs"></i>
-                                                <span>جهازين (2 جهاز)</span>
-                                            </button>
-                                        </div>
-                                        <div className="mt-2">
+                                        <div className="relative">
+                                            <i className="fa-solid fa-tag absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                                             <input
                                                 type="text"
-                                                value={['جهاز', 'جهازين'].includes(formData.deviceType) ? '' : formData.deviceType}
+                                                value={formData.deviceType}
                                                 onChange={(e) => setFormData({ ...formData, deviceType: e.target.value })}
-                                                placeholder="أو اكتب نوع اشتراك مخصص..."
-                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                                placeholder="مثال: سنوي، شهري، VIP، أو أي نوع اشتراك..."
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
                                             />
                                         </div>
                                     </div>
