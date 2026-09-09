@@ -242,19 +242,28 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
-                    const hasInvoice = parsed.some(s => s.id === 'invoice_data');
+                    let updated = [...parsed];
+                    const hasInvoice = updated.some(s => s.id === 'invoice_data');
                     if (hasInvoice) {
-                        const migrated = parsed.map(s => s.id === 'invoice_data' ? {
+                        updated = updated.map(s => s.id === 'invoice_data' ? {
                             id: 'trash_data',
                             name: 'سلة المهملات',
                             icon: 'fa-trash-can',
                             color: 'from-rose-600 to-red-600',
                             badgeColor: 'bg-rose-500'
                         } : s);
-                        localStorage.setItem('sv_sheets_config', JSON.stringify(migrated));
-                        return migrated;
                     }
-                    return parsed;
+                    if (!updated.some(s => s.id === 'customers_data')) {
+                        const trashIdx = updated.findIndex(s => s.id === 'trash_data');
+                        const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
+                        if (trashIdx !== -1) {
+                            updated.splice(trashIdx, 0, newSheet);
+                        } else {
+                            updated.push(newSheet);
+                        }
+                    }
+                    localStorage.setItem('sv_sheets_config', JSON.stringify(updated));
+                    return updated;
                 }
             }
             return DEFAULT_SHEETS;
@@ -302,6 +311,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     // Form State
     const [formData, setFormData] = useState({
+        name: '',
+        phone: '',
         email: '',
         password: '',
         password2: '',
@@ -519,6 +530,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     }, [sheetsList, currentSheetId]);
 
     const isClientOrMerchant = currentSheetId === 'client_data' || currentSheetId === 'merchant_data';
+    const isCustomersSheet = currentSheetId === 'customers_data';
 
     // Copy helper with feedback
     const handleCopy = (text, key) => {
@@ -542,7 +554,12 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const handleFormSubmit = (e) => {
         e.preventDefault();
 
-        if (isClientOrMerchant) {
+        if (currentSheetId === 'customers_data') {
+            if (!formData.name && !formData.phone) {
+                showToast('يرجى إدخال اسم العميل أو رقم التليفون على الأقل', 'warning');
+                return;
+            }
+        } else if (isClientOrMerchant) {
             if (!formData.email && !formData.password && !formData.password2 && !formData.duration && !formData.selectedAccount) {
                 showToast('يرجى إدخال البريد الإلكتروني أو كلمة المرور أو مدة الاشتراك أو بيانات الحساب على الأقل', 'warning');
                 return;
@@ -559,7 +576,29 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             }
         }
 
-        const cleanPayload = isClientOrMerchant ? {
+        const cleanPayload = currentSheetId === 'customers_data' ? {
+            name: formData.name || '',
+            phone: formData.phone || '',
+            deviceType: formData.deviceType || 'جهاز',
+            notes: formData.notes || '',
+            email: formData.email || '',
+            password: '',
+            password2: '',
+            serviceType: '',
+            duration: '',
+            startDate: '',
+            paymentStatus: '',
+            selectedAccount: '',
+            invoiceNumber: '',
+            visa: '',
+            visaAccount: '',
+            accountCreatedDate: '',
+            reminderDays: '',
+            saleStatus: null,
+            isSold: null
+        } : isClientOrMerchant ? {
+            name: formData.name || '',
+            phone: formData.phone || '',
             email: formData.email,
             password: formData.password,
             password2: formData.password2,
@@ -578,6 +617,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             saleStatus: null,
             isSold: null
         } : currentSheetId === 'account_data' ? {
+            name: '',
+            phone: '',
             email: formData.email,
             password: formData.password,
             password2: formData.password2,
@@ -596,6 +637,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
             isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
         } : {
+            name: '',
+            phone: '',
             email: formData.email,
             password: formData.password,
             password2: formData.password2,
@@ -644,6 +687,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setShowAddModal(false);
         setEditingRecord(null);
         setFormData({
+            name: '',
+            phone: '',
             email: '',
             password: '',
             password2: '',
@@ -668,6 +713,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         refreshAvailableAccounts();
         setEditingRecord(rec);
         setFormData({
+            name: rec.name || '',
+            phone: rec.phone || '',
             email: rec.email || '',
             password: rec.password || '',
             password2: rec.password2 || '',
@@ -989,7 +1036,17 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
             parts = parts.map(p => p.trim());
 
-            if (isClientOrMerchant) {
+            if (isCustomersSheet) {
+                newItems.push({
+                    id: 'REC-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substring(2, 6),
+                    name: parts[0] || '',
+                    phone: parts[1] || '',
+                    deviceType: parts[2] || 'جهاز',
+                    notes: parts[3] || '',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+            } else if (isClientOrMerchant) {
                 newItems.push({
                     id: 'REC-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substring(2, 6),
                     email: parts[0] || '',
@@ -1040,7 +1097,16 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
 
         let dataToExport;
-        if (isTrashSheet) {
+        if (isCustomersSheet) {
+            dataToExport = records.map((r, i) => ({
+                'م': i + 1,
+                'اسم العميل (Name)': r.name || '',
+                'رقم التليفون (Phone)': r.phone || '',
+                'نوع الاشتراك (Device / Subscription)': r.deviceType || 'جهاز',
+                'ملاحظات': r.notes || '',
+                'تاريخ الإضافة': r.created_at ? new Date(r.created_at).toLocaleString('ar-EG') : ''
+            }));
+        } else if (isTrashSheet) {
             dataToExport = records.map((r, i) => ({
                 'م': i + 1,
                 'البريد الإلكتروني (Email)': r.email || '',
@@ -1237,7 +1303,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     // Subscriptions & Account Alert Groups (قرب التجديد / التذكير في آخر 3 أيام، ومنتهي/مستحق، وساري)
     const alertGroups = useMemo(() => {
-        if (currentSheetId === 'trash_data') {
+        if (currentSheetId === 'trash_data' || currentSheetId === 'customers_data') {
             return { nearRenewal: [], expired: [], active: [] };
         }
 
@@ -1275,28 +1341,30 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const filteredRecords = useMemo(() => {
         let result = records;
 
-        // Filter by Expiry Status Tab (All, Near Renewal, Expired, Active)
-        if (expiryFilter === 'near') {
-            result = result.filter(r => {
-                const rem = currentSheetId === 'account_data'
-                    ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
-                    : calculateRemainingTime(r.startDate, r.duration, r.created_at);
-                return rem.days !== null && rem.days >= 0 && rem.days <= 3 && rem.status !== 'lifetime';
-            });
-        } else if (expiryFilter === 'expired') {
-            result = result.filter(r => {
-                const rem = currentSheetId === 'account_data'
-                    ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
-                    : calculateRemainingTime(r.startDate, r.duration, r.created_at);
-                return rem.days !== null && rem.days < 0;
-            });
-        } else if (expiryFilter === 'active') {
-            result = result.filter(r => {
-                const rem = currentSheetId === 'account_data'
-                    ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
-                    : calculateRemainingTime(r.startDate, r.duration, r.created_at);
-                return rem.days > 3 || rem.status === 'lifetime';
-            });
+        // Filter by Expiry Status Tab (All, Near Renewal, Expired, Active) - only for sheets with subscription dates
+        if (currentSheetId !== 'customers_data') {
+            if (expiryFilter === 'near') {
+                result = result.filter(r => {
+                    const rem = currentSheetId === 'account_data'
+                        ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
+                        : calculateRemainingTime(r.startDate, r.duration, r.created_at);
+                    return rem.days !== null && rem.days >= 0 && rem.days <= 3 && rem.status !== 'lifetime';
+                });
+            } else if (expiryFilter === 'expired') {
+                result = result.filter(r => {
+                    const rem = currentSheetId === 'account_data'
+                        ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
+                        : calculateRemainingTime(r.startDate, r.duration, r.created_at);
+                    return rem.days !== null && rem.days < 0;
+                });
+            } else if (expiryFilter === 'active') {
+                result = result.filter(r => {
+                    const rem = currentSheetId === 'account_data'
+                        ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
+                        : calculateRemainingTime(r.startDate, r.duration, r.created_at);
+                    return rem.days > 3 || rem.status === 'lifetime';
+                });
+            }
         }
 
         if (searchTerm.trim()) {
@@ -1306,6 +1374,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                     : calculateRemainingTime(r.startDate, r.duration, r.created_at);
                 return (
+                    String(r.name || '').toLowerCase().includes(q) ||
+                    String(r.phone || '').toLowerCase().includes(q) ||
                     String(r.email || '').toLowerCase().includes(q) ||
                     String(r.password || '').toLowerCase().includes(q) ||
                     String(r.password2 || '').toLowerCase().includes(q) ||
@@ -1453,6 +1523,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             };
         }
 
+        if (isCustomersSheet) {
+            const withPhone = records.filter(r => r.phone && r.phone.trim()).length;
+            const singleDevice = records.filter(r => (r.deviceType || 'جهاز').includes('جهاز') && !(r.deviceType || '').includes('جهازين')).length;
+            const dualDevice = records.filter(r => (r.deviceType || '').includes('جهازين')).length;
+            return {
+                total,
+                withPhone,
+                singleDevice,
+                dualDevice,
+                nearCount: 0,
+                expiredCount: 0
+            };
+        }
+
         const withInvoices = records.filter(r => r.invoiceNumber).length;
         const withVisa = records.filter(r => r.visa).length;
         const withVisaAccount = records.filter(r => r.visaAccount).length;
@@ -1472,7 +1556,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             nearCount: alertGroups.nearRenewal.length,
             expiredCount: alertGroups.expired.length
         };
-    }, [records, alertGroups, currentSheetId]);
+    }, [records, alertGroups, currentSheetId, isCustomersSheet]);
 
     return (
         <div className="space-y-6 animate-fade-in font-sans pb-12">
@@ -1538,6 +1622,38 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl">
                                 <i className="fa-solid fa-store"></i>
+                            </div>
+                        </div>
+                    </>
+                ) : isCustomersSheet ? (
+                    <>
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">أرقام هواتف مسجلة</p>
+                                <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{stats.withPhone}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-phone-volume"></i>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">اشتراك جهاز واحد</p>
+                                <h4 className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{stats.singleDevice}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-mobile-screen"></i>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">اشتراك جهازين</p>
+                                <h4 className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1">{stats.dualDevice}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-laptop-mobile"></i>
                             </div>
                         </div>
                     </>
@@ -1671,6 +1787,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             <p className="text-xs text-slate-400 dark:text-slate-500">
                                 {isTrashSheet
                                     ? 'سلة المهملات: استعراض الحسابات والبيانات المحذوفة مع إمكانية استردادها للشيت الأصلي أو حذفها نهائياً'
+                                    : isCustomersSheet
+                                    ? 'إدارة وحفظ بيانات العملاء وأرقام الهواتف ونوع الاشتراك والتواصل السريع'
                                     : isClientOrMerchant
                                     ? 'إدارة وحفظ بيانات الإيميل والباسورد الأول والثاني ومدة الاشتراك محلياً'
                                     : currentSheetId === 'account_data'
@@ -1703,6 +1821,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         refreshAvailableAccounts();
                                         setEditingRecord(null);
                                         setFormData({
+                                            name: '',
+                                            phone: '',
                                             email: '',
                                             password: '',
                                             password2: '',
@@ -1740,7 +1860,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder={
-                                currentSheetId === 'merchant_data'
+                                currentSheetId === 'customers_data'
+                                    ? "بحث في اسم العميل، رقم التليفون، نوع الاشتراك، الملاحظات..."
+                                    : currentSheetId === 'merchant_data'
                                     ? "بحث في الإيميل، اسم التاجر، مدة الاشتراك..."
                                     : currentSheetId === 'client_data'
                                     ? "بحث في الإيميل، الخدمة، مدة الاشتراك..."
@@ -1819,26 +1941,84 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         }`}></i>
                                     </div>
                                 </th>
-                                <th
-                                    onClick={() => setSortBy(prev => ({
-                                        field: 'created_at',
-                                        asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
-                                    }))}
-                                    className="px-1 py-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
-                                    title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        <span>البريد الإلكتروني</span>
-                                        <i className={`fa-solid text-[9px] transition-colors ${
-                                            (sortBy.field === 'created_at' || sortBy.field === 'email')
-                                                ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
-                                                : 'fa-sort text-slate-400 group-hover:text-indigo-500'
-                                        }`}></i>
-                                    </div>
-                                </th>
-                                <th className="px-1 py-1">الباسورد (1)</th>
-                                <th className="px-1 py-1">الباسورد (2)</th>
-                                {isTrashSheet ? (
+                                {isCustomersSheet ? (
+                                    <>
+                                        <th
+                                            onClick={() => setSortBy(prev => ({ field: 'name', asc: prev.field === 'name' ? !prev.asc : true }))}
+                                            className="px-2.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span>اسم العميل</span>
+                                                <i className={`fa-solid text-[9px] transition-colors ${
+                                                    sortBy.field === 'name'
+                                                        ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                        : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                                }`}></i>
+                                            </div>
+                                        </th>
+                                        <th
+                                            onClick={() => setSortBy(prev => ({ field: 'phone', asc: prev.field === 'phone' ? !prev.asc : true }))}
+                                            className="px-2.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span>رقم التليفون</span>
+                                                <i className={`fa-solid text-[9px] transition-colors ${
+                                                    sortBy.field === 'phone'
+                                                        ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                        : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                                }`}></i>
+                                            </div>
+                                        </th>
+                                        <th
+                                            onClick={() => setSortBy(prev => ({ field: 'deviceType', asc: prev.field === 'deviceType' ? !prev.asc : true }))}
+                                            className="px-2.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span>نوع الاشتراك</span>
+                                                <i className={`fa-solid text-[9px] transition-colors ${
+                                                    sortBy.field === 'deviceType'
+                                                        ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                        : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                                }`}></i>
+                                            </div>
+                                        </th>
+                                        <th className="px-2.5 py-1.5">ملاحظات</th>
+                                        <th
+                                            onClick={() => setSortBy(prev => ({ field: 'created_at', asc: prev.field === 'created_at' ? !prev.asc : true }))}
+                                            className="px-2.5 py-1.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span>تاريخ الإضافة</span>
+                                                <i className={`fa-solid text-[9px] transition-colors ${
+                                                    sortBy.field === 'created_at'
+                                                        ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                        : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                                }`}></i>
+                                            </div>
+                                        </th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th
+                                            onClick={() => setSortBy(prev => ({
+                                                field: 'created_at',
+                                                asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                                            }))}
+                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
+                                            title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
+                                        >
+                                            <div className="flex items-center gap-1">
+                                                <span>البريد الإلكتروني</span>
+                                                <i className={`fa-solid text-[9px] transition-colors ${
+                                                    (sortBy.field === 'created_at' || sortBy.field === 'email')
+                                                        ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                        : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                                }`}></i>
+                                            </div>
+                                        </th>
+                                        <th className="px-1 py-1">الباسورد (1)</th>
+                                        <th className="px-1 py-1">الباسورد (2)</th>
+                                        {isTrashSheet ? (
                                     <>
                                         <th
                                             onClick={() => setSortBy({ field: 'originSheetName', asc: sortBy.field === 'originSheetName' ? !sortBy.asc : true })}
@@ -1963,6 +2143,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                     </>
                                 )}
+                                    </>
+                                )}
                                  <th className={`px-1 py-1.5 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80`}>إجراءات</th>
                             </tr>
                         </thead>
@@ -1970,7 +2152,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                             {paginatedRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data' ? 7 : 9)))} className="p-12 text-center text-slate-400">
+                                    <td colSpan={isCustomersSheet ? 7 : isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data' ? 7 : 9)))} className="p-12 text-center text-slate-400">
                                         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
                                             <i className={`fa-solid ${isTrashSheet ? 'fa-trash-can text-rose-400' : 'fa-folder-open'}`}></i>
                                         </div>
@@ -2025,7 +2207,98 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 {rowNum}
                                             </td>
 
-                                            {/* Email */}
+                                            {isCustomersSheet ? (
+                                                <>
+                                                    {/* Name */}
+                                                    <td className="px-2.5 py-1.5 font-medium">
+                                                        {rec.name ? (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <div className="w-6 h-6 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                                                                    <i className="fa-solid fa-user"></i>
+                                                                </div>
+                                                                <span className="text-slate-800 dark:text-slate-100 font-bold text-xs">
+                                                                    {rec.name}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => handleCopy(rec.name, `nm_${rec.id}`)}
+                                                                    className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
+                                                                    title="نسخ الاسم"
+                                                                >
+                                                                    <i className={`fa-solid ${copiedField === `nm_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[9px]`}></i>
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Phone */}
+                                                    <td className="px-2.5 py-1.5 font-medium">
+                                                        {rec.phone ? (
+                                                            <div className="flex items-center gap-1.5 dir-ltr justify-end">
+                                                                <span className="font-mono text-slate-800 dark:text-slate-200 select-all text-xs font-bold">
+                                                                    {rec.phone}
+                                                                </span>
+                                                                <button
+                                                                    onClick={() => handleCopy(rec.phone, `ph_${rec.id}`)}
+                                                                    className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 transition"
+                                                                    title="نسخ رقم التليفون"
+                                                                >
+                                                                    <i className={`fa-solid ${copiedField === `ph_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[10px]`}></i>
+                                                                </button>
+                                                                <a
+                                                                    href={`https://wa.me/${rec.phone.replace(/[^0-9]/g, '')}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition"
+                                                                    title="محادثة واتساب مباشرة"
+                                                                >
+                                                                    <i className="fa-brands fa-whatsapp text-[11px]"></i>
+                                                                </a>
+                                                                <a
+                                                                    href={`tel:${rec.phone}`}
+                                                                    className="w-5 h-5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500 hover:text-white flex items-center justify-center transition"
+                                                                    title="اتصال هاتفي"
+                                                                >
+                                                                    <i className="fa-solid fa-phone text-[9px]"></i>
+                                                                </a>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Device / Subscription Type */}
+                                                    <td className="px-2.5 py-1.5">
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10.5px] font-bold border ${
+                                                            rec.deviceType === 'جهازين'
+                                                                ? 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60'
+                                                                : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60'
+                         }`}>
+                                                            <i className={`fa-solid ${rec.deviceType === 'جهازين' ? 'fa-laptop-mobile' : 'fa-mobile-screen'} text-[9px]`}></i>
+                                                            <span>{rec.deviceType || 'جهاز'}</span>
+                                                        </span>
+                                                    </td>
+
+                                                    {/* Notes */}
+                                                    <td className="px-2.5 py-1.5">
+                                                        {rec.notes ? (
+                                                            <span className="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[220px] block" title={rec.notes}>
+                                                                {rec.notes}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Date Added */}
+                                                    <td className="px-2.5 py-1.5 text-slate-500 dark:text-slate-400 font-mono text-xs whitespace-nowrap">
+                                                        {rec.created_at ? new Date(rec.created_at).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Email */}
                                             <td className="px-1 py-1 font-medium">
                                                 {rec.email ? (
                                                     <div className="flex items-center gap-1 dir-ltr justify-end">
@@ -2484,6 +2757,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </td>
                                                 </>
                                             )}
+                                                </>
+                                            )}
 
                                             {/* Actions */}
                                             <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
@@ -2668,6 +2943,87 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
                             {/* Scrollable Form Body with visible scrollbar on the left side */}
                             <div className="flex-1 overflow-y-auto custom-modal-scroll px-6 py-5 space-y-4">
+                            {isCustomersSheet ? (
+                                <div className="space-y-4">
+                                    {/* Name */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                            اسم العميل <span className="text-rose-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-user absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                            <input
+                                                type="text"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                placeholder="أدخل اسم العميل بالكامل..."
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Phone */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                            رقم التليفون <span className="text-rose-500">*</span>
+                                        </label>
+                                        <div className="relative">
+                                            <i className="fa-solid fa-phone absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                            <input
+                                                type="tel"
+                                                value={formData.phone}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                placeholder="مثال: 01012345678 أو +20..."
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 dir-ltr text-right font-mono"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Subscription Type */}
+                                    <div className="space-y-1.5">
+                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                            نوع الاشتراك
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, deviceType: 'جهاز' })}
+                                                className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                                                    formData.deviceType === 'جهاز' || !formData.deviceType
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
+                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-mobile-screen text-xs"></i>
+                                                <span>جهاز (1 جهاز)</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, deviceType: 'جهازين' })}
+                                                className={`px-3 py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-2 cursor-pointer ${
+                                                    formData.deviceType === 'جهازين'
+                                                        ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20'
+                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-laptop-mobile text-xs"></i>
+                                                <span>جهازين (2 جهاز)</span>
+                                            </button>
+                                        </div>
+                                        <div className="mt-2">
+                                            <input
+                                                type="text"
+                                                value={['جهاز', 'جهازين'].includes(formData.deviceType) ? '' : formData.deviceType}
+                                                onChange={(e) => setFormData({ ...formData, deviceType: e.target.value })}
+                                                placeholder="أو اكتب نوع اشتراك مخصص..."
+                                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
                             {/* Email */}
                             <div>
                                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
@@ -3225,6 +3581,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </div>
                                 </div>
                             )}
+                                </>
+                            )}
 
                             {/* Notes Field (Directly under duration / visa for all sheets) */}
                             <div>
@@ -3289,7 +3647,14 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                         <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl text-xs text-slate-600 dark:text-slate-400 space-y-1">
                             <p className="font-bold text-slate-800 dark:text-slate-200">الصيغ المدعومة لكل سطر (مفصولة بـ : أو | أو Tab):</p>
-                            {isClientOrMerchant ? (
+                            {isCustomersSheet ? (
+                                <>
+                                    <p className="font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
+                                        الاسم:رقم الهاتف:نوع الاشتراك:ملاحظات
+                                    </p>
+                                    <p className="text-[11px] text-slate-400">مثال: أحمد محمد:01012345678:جهاز:عميل مميز</p>
+                                </>
+                            ) : isClientOrMerchant ? (
                                 <>
                                     <p className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
                                         email:pass1:pass2:duration:notes

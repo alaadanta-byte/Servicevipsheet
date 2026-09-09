@@ -84,7 +84,7 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
         const alertsList = [];
 
         Object.entries(allRecordsBySheet).forEach(([sheetId, records]) => {
-            if (sheetId === 'trash_data' || sheetId === 'account_data') return;
+            if (sheetId === 'trash_data' || sheetId === 'account_data' || sheetId === 'customers_data') return;
             if (!canAccessSheet(sheetId)) return; // Only process sheets the user is permitted to access
             totalCount += records.length;
             const sheetMeta = getSheetMeta(sheetId);
@@ -426,7 +426,7 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
                             className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="all">جميع الشيتات المتاحة</option>
-                            {DEFAULT_SHEETS.filter(ds => ds.id !== 'trash_data' && ds.id !== 'account_data' && canAccessSheet(ds.id)).map(ds => {
+                            {DEFAULT_SHEETS.filter(ds => ds.id !== 'trash_data' && ds.id !== 'account_data' && ds.id !== 'customers_data' && canAccessSheet(ds.id)).map(ds => {
                                 const meta = getSheetMeta(ds.id);
                                 return (
                                     <option key={ds.id} value={ds.id}>

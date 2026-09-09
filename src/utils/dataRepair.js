@@ -6,6 +6,7 @@ export const DEFAULT_SHEETS = [
     { id: 'client_data', name: 'بيانات العميل', icon: 'fa-user-tie', color: 'from-blue-600 to-indigo-600', badgeColor: 'bg-blue-500' },
     { id: 'merchant_data', name: 'بيانات التاجر', icon: 'fa-store', color: 'from-emerald-600 to-teal-600', badgeColor: 'bg-emerald-500' },
     { id: 'account_data', name: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'from-purple-600 to-indigo-600', badgeColor: 'bg-purple-500' },
+    { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' },
     { id: 'trash_data', name: 'سلة المهملات', icon: 'fa-trash-can', color: 'from-rose-600 to-red-600', badgeColor: 'bg-rose-500' }
 ];
 
@@ -79,6 +80,8 @@ export const sanitizeRecord = (r, idx = 0) => {
 
     return {
         id: String(r.id || `REC-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`),
+        name: String(rawName).trim(),
+        phone: String(rawPhone).trim(),
         email: String(rawEmail).trim(),
         password: String(rawPassword).trim(),
         password2: String(rawPassword2).trim(),

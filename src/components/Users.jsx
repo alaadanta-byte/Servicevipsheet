@@ -17,6 +17,7 @@ export const PERMISSIONS_SECTIONS = [
             { id: 'sheet_client_data', label: 'شيت بيانات العميل', icon: 'fa-user-tie', desc: 'الوصول إلى جدول ومواعيد عملاء الخدمة' },
             { id: 'sheet_merchant_data', label: 'شيت بيانات التاجر', icon: 'fa-store', desc: 'الوصول إلى جدول حسابات وتجار الخدمة' },
             { id: 'sheet_account_data', label: 'شيت بيانات الحساب', icon: 'fa-shield-halved', desc: 'الوصول إلى شيت بيانات الحسابات والمخزون' },
+            { id: 'sheet_customers_data', label: 'شيت داتا العملاء', icon: 'fa-address-book', desc: 'الوصول إلى شيت داتا العملاء (الاسم، الهاتف، نوع الاشتراك)' },
             { id: 'sheet_trash_data', label: 'سلة المهملات', icon: 'fa-trash-can', desc: 'استعراض البيانات المحذوفة وإمكانية استرجاعها' },
         ]
     },
@@ -103,7 +104,7 @@ export default function Users () {
         setFormPassword('');
         setFormRole('moderator');
         // الصلاحيات الافتراضية للمشرف (الوصول للشيتات الأساسية والإضافة والتعديل)
-        setSelectedPermissions(['dashboard', 'sheet_client_data', 'sheet_merchant_data', 'sheet_account_data', 'add_row', 'edit_row']);
+        setSelectedPermissions(['dashboard', 'sheet_client_data', 'sheet_merchant_data', 'sheet_account_data', 'sheet_customers_data', 'add_row', 'edit_row']);
         setShowModal(true);
     };
 

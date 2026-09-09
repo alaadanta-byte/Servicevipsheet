@@ -7,6 +7,7 @@ const DEFAULT_SHEETS = [
     { id: 'client_data', label: 'بيانات العميل', icon: 'fa-user-tie', color: 'text-blue-400', activeBg: 'bg-blue-600' },
     { id: 'merchant_data', label: 'بيانات التاجر', icon: 'fa-store', color: 'text-emerald-400', activeBg: 'bg-emerald-600' },
     { id: 'account_data', label: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'text-purple-400', activeBg: 'bg-purple-600' },
+    { id: 'customers_data', label: 'داتا العملاء', icon: 'fa-address-book', color: 'text-cyan-400', activeBg: 'bg-cyan-600' },
     { id: 'trash_data', label: 'سلة المهملات', icon: 'fa-trash-can', color: 'text-rose-400', activeBg: 'bg-rose-600' },
 ];
 
@@ -54,11 +55,23 @@ export default function Sidebar ({ isOpen, onClose }) {
         try {
             const savedConfig = localStorage.getItem('sv_sheets_config');
             if (savedConfig) {
-                const parsed = JSON.parse(savedConfig);
-                setSheetItems(DEFAULT_SHEETS.map(ds => {
-                    const found = parsed.find(p => p.id === ds.id);
-                    return found ? { ...ds, label: found.name || ds.label } : ds;
-                }));
+                let parsed = JSON.parse(savedConfig);
+                if (Array.isArray(parsed)) {
+                    if (!parsed.some(p => p.id === 'customers_data')) {
+                        const trashIdx = parsed.findIndex(p => p.id === 'trash_data');
+                        const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
+                        if (trashIdx !== -1) {
+                            parsed.splice(trashIdx, 0, newSheet);
+                        } else {
+                            parsed.push(newSheet);
+                        }
+                        localStorage.setItem('sv_sheets_config', JSON.stringify(parsed));
+                    }
+                    setSheetItems(DEFAULT_SHEETS.map(ds => {
+                        const found = parsed.find(p => p.id === ds.id);
+                        return found ? { ...ds, label: found.name || ds.label } : ds;
+                    }));
+                }
             }
         } catch {}
 
@@ -76,7 +89,7 @@ export default function Sidebar ({ isOpen, onClose }) {
         // Count pending renewal alerts (near renewal <= 3 days or expired < 0) for permitted subscription sheets only
         let alertsTotal = 0;
         visibleSheets.forEach(s => {
-            if (s.id === 'trash_data' || s.id === 'account_data') return;
+            if (s.id === 'trash_data' || s.id === 'account_data' || s.id === 'customers_data') return;
             try {
                 const data = localStorage.getItem(`sv_custom_sheet_${s.id}`);
                 if (data) {
