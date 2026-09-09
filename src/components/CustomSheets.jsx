@@ -855,15 +855,19 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     // Quick toggle payment status directly from table
     const handleTogglePaymentStatus = (id) => {
+        let toastMsg = '';
         const updated = records.map(r => {
             if (r.id === id) {
                 const nextStatus = r.paymentStatus === 'غير مدفوع' ? 'مدفوع' : 'غير مدفوع';
+                toastMsg = nextStatus === 'مدفوع'
+                    ? 'تم التحديد: مدفوع (تظليل أخضر فاتح) ✓'
+                    : 'تم التحديد: غير مدفوع (تظليل أحمر فاتح) ✕';
                 return { ...r, paymentStatus: nextStatus, updated_at: new Date().toISOString() };
             }
             return r;
         });
         saveRecords(updated);
-        showToast('تم تحديث حالة الدفع بنجاح ✓', 'success');
+        showToast(toastMsg || 'تم تحديث حالة الدفع بنجاح ✓', 'success');
     };
 
     // Quick toggle sale status directly from table (تم البيع / لم يتم البيع / إلغاء التظليل)
@@ -1988,18 +1992,26 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isVisaVisible = visibleSecrets[`${rec.id}_visa`];
 
                                     const isAccountSheet = currentSheetId === 'account_data';
+                                    const isClientOrMerchantSheet = currentSheetId === 'client_data' || currentSheetId === 'merchant_data';
+
                                     const isSold = isAccountSheet && (rec.saleStatus === 'sold' || rec.isSold === true);
                                     const isUnsold = isAccountSheet && (rec.saleStatus === 'unsold' || rec.isSold === false);
 
-                                    const rowBgClass = isSold
+                                    const isPaid = isClientOrMerchantSheet && (rec.paymentStatus === 'مدفوع' || (!rec.paymentStatus && currentSheetId !== 'trash_data'));
+                                    const isUnpaid = isClientOrMerchantSheet && (rec.paymentStatus === 'غير مدفوع');
+
+                                    const isGreen = isSold || isPaid;
+                                    const isRed = isUnsold || isUnpaid;
+
+                                    const rowBgClass = isGreen
                                         ? 'bg-emerald-100/90 dark:bg-emerald-950/60 hover:bg-emerald-200/90 dark:hover:bg-emerald-900/70 border-b border-emerald-200/80 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-50'
-                                        : isUnsold
+                                        : isRed
                                             ? 'bg-rose-100/90 dark:bg-rose-950/60 hover:bg-rose-200/90 dark:hover:bg-rose-900/70 border-b border-rose-200/80 dark:border-rose-800/60 text-rose-950 dark:text-rose-50'
                                             : 'hover:bg-indigo-50/30 dark:hover:bg-slate-800/50';
 
-                                    const stickyActionBgClass = isSold
+                                    const stickyActionBgClass = isGreen
                                         ? 'bg-emerald-100/95 dark:bg-emerald-950/90 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900'
-                                        : isUnsold
+                                        : isRed
                                             ? 'bg-rose-100/95 dark:bg-rose-950/90 group-hover:bg-rose-200 dark:group-hover:bg-rose-900'
                                             : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90';
 
@@ -2474,7 +2486,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
+                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
