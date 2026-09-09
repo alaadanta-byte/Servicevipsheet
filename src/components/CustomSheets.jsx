@@ -575,8 +575,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             visaAccount: '',
             accountCreatedDate: '',
             reminderDays: '',
-            saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
-            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
+            saleStatus: null,
+            isSold: null
         } : currentSheetId === 'account_data' ? {
             email: formData.email,
             password: formData.password,
@@ -611,8 +611,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             notes: formData.notes,
             accountCreatedDate: '',
             reminderDays: '',
-            saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
-            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
+            saleStatus: null,
+            isSold: null
         };
 
         if (editingRecord) {
@@ -1959,7 +1959,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                     </>
                                 )}
-                                 <th className="px-1 py-1.5 text-center min-w-[115px] text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80">إجراءات</th>
+                                 <th className={`px-1 py-1.5 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80`}>إجراءات</th>
                             </tr>
                         </thead>
 
@@ -1987,8 +1987,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isPass2Visible = visibleSecrets[`${rec.id}_pass2`];
                                     const isVisaVisible = visibleSecrets[`${rec.id}_visa`];
 
-                                    const isSold = rec.saleStatus === 'sold' || rec.isSold === true;
-                                    const isUnsold = rec.saleStatus === 'unsold' || rec.isSold === false;
+                                    const isAccountSheet = currentSheetId === 'account_data';
+                                    const isSold = isAccountSheet && (rec.saleStatus === 'sold' || rec.isSold === true);
+                                    const isUnsold = isAccountSheet && (rec.saleStatus === 'unsold' || rec.isSold === false);
 
                                     const rowBgClass = isSold
                                         ? 'bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100/90 dark:hover:bg-emerald-900/50'
@@ -2467,7 +2468,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className={`px-1 py-1 text-center min-w-[115px] sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
+                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -2490,56 +2491,58 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center justify-center gap-1">
-                                                        {/* زر حالة البيع والتظليل: بين النسخ وعلامة التعديل */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                                const menuHeight = 175;
-                                                                const menuWidth = 190;
-                                                                const spaceBelow = window.innerHeight - rect.bottom;
-                                                                const openUpwards = spaceBelow < menuHeight;
-                                                                const top = openUpwards ? Math.max(10, rect.top - menuHeight - 4) : rect.bottom + 4;
-                                                                const left = Math.min(Math.max(10, rect.left), window.innerWidth - menuWidth - 10);
+                                                        {/* زر حالة البيع والتظليل: خاص ببيانات الحساب فقط بين النسخ والتعديل */}
+                                                        {currentSheetId === 'account_data' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    const menuHeight = 175;
+                                                                    const menuWidth = 190;
+                                                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                                                    const openUpwards = spaceBelow < menuHeight;
+                                                                    const top = openUpwards ? Math.max(10, rect.top - menuHeight - 4) : rect.bottom + 4;
+                                                                    const left = Math.min(Math.max(10, rect.left), window.innerWidth - menuWidth - 10);
 
-                                                                setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
-                                                                    id: rec.id,
-                                                                    top,
-                                                                    left,
-                                                                    saleStatus: rec.saleStatus,
-                                                                    isSold: rec.isSold
-                                                                }));
-                                                            }}
-                                                            title="تحديد حالة البيع والتظليل (انقر لفتح الاختيارات)"
-                                                            className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
-                                                                isSold
-                                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
-                                                                    : isUnsold
-                                                                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
-                                                                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
-                                                            }`}
-                                                        >
-                                                            {isSold ? (
-                                                                <>
-                                                                    <i className="fa-solid fa-check text-[7.5px]"></i>
-                                                                    <span>تم البيع</span>
-                                                                    <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
-                                                                </>
-                                                            ) : isUnsold ? (
-                                                                <>
-                                                                    <i className="fa-solid fa-xmark text-[7.5px]"></i>
-                                                                    <span>لم يتم</span>
-                                                                    <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <i className="fa-solid fa-tag text-[7.5px]"></i>
-                                                                    <span>الحالة</span>
-                                                                    <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
-                                                                </>
-                                                            )}
-                                                        </button>
+                                                                    setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
+                                                                        id: rec.id,
+                                                                        top,
+                                                                        left,
+                                                                        saleStatus: rec.saleStatus,
+                                                                        isSold: rec.isSold
+                                                                    }));
+                                                                }}
+                                                                title="تحديد حالة البيع والتظليل (انقر لفتح الاختيارات)"
+                                                                className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
+                                                                    isSold
+                                                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                                                                        : isUnsold
+                                                                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                                                                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
+                                                                }`}
+                                                            >
+                                                                {isSold ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-check text-[7.5px]"></i>
+                                                                        <span>تم البيع</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : isUnsold ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-xmark text-[7.5px]"></i>
+                                                                        <span>لم يتم</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <i className="fa-solid fa-tag text-[7.5px]"></i>
+                                                                        <span>الحالة</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        )}
 
                                                         {canEdit && (
                                                             <button
@@ -3156,52 +3159,54 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 </div>
                             )}
 
-                            {/* حالة البيع والتظليل */}
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    حالة البيع والتظليل في الجدول
-                                </label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, saleStatus: '' })}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                            !formData.saleStatus
-                                                ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-800 dark:text-white shadow-xs'
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
-                                        }`}
-                                    >
-                                        <i className="fa-solid fa-minus text-[10px]"></i>
-                                        <span>بدون تظليل</span>
-                                    </button>
+                            {/* حالة البيع والتظليل: خاص ببيانات الحساب فقط */}
+                            {currentSheetId === 'account_data' && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                        حالة البيع والتظليل في الجدول
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: '' })}
+                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                !formData.saleStatus
+                                                    ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-800 dark:text-white shadow-xs'
+                                                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-minus text-[10px]"></i>
+                                            <span>بدون تظليل</span>
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, saleStatus: 'sold' })}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                            formData.saleStatus === 'sold'
-                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                                                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
-                                        }`}
-                                    >
-                                        <i className="fa-solid fa-circle-check text-xs"></i>
-                                        <span>تم البيع (أخضر)</span>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'sold' })}
+                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'sold'
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                                                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-circle-check text-xs"></i>
+                                            <span>تم البيع (أخضر)</span>
+                                        </button>
 
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, saleStatus: 'unsold' })}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                            formData.saleStatus === 'unsold'
-                                                ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
-                                                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
-                                        }`}
-                                    >
-                                        <i className="fa-solid fa-circle-xmark text-xs"></i>
-                                        <span>لم يتم (أحمر)</span>
-                                    </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'unsold' })}
+                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'unsold'
+                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
+                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-circle-xmark text-xs"></i>
+                                            <span>لم يتم (أحمر)</span>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Notes Field (Directly under duration / visa for all sheets) */}
                             <div>
@@ -3476,8 +3481,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 </div>
             )}
 
-            {/* Sale Status Floating Menu (Fixed Portal to avoid any table overflow clipping) */}
-            {saleMenuAnchor && (
+            {/* Sale Status Floating Menu (Fixed Portal to avoid any table overflow clipping - Only for account_data) */}
+            {saleMenuAnchor && currentSheetId === 'account_data' && (
                 <div
                     className="fixed inset-0 z-[99999]"
                     onClick={() => setSaleMenuAnchor(null)}
