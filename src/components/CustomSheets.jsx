@@ -288,6 +288,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const serviceDropdownRef = useRef(null);
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
+    const [openSaleMenuId, setOpenSaleMenuId] = useState(null);
 
     // Notification toast
     const [toast, setToast] = useState(null);
@@ -422,7 +423,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         return () => clearInterval(interval);
     }, [currentSheetId]);
 
-    // Close duration & service dropdowns when clicking outside
+    // Close duration, service & sale status dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (durationDropdownRef.current && !durationDropdownRef.current.contains(e.target)) {
@@ -431,12 +432,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target)) {
                 setIsServiceDropdownOpen(false);
             }
+            if (openSaleMenuId && !e.target.closest('.sale-menu-container')) {
+                setOpenSaleMenuId(null);
+            }
         };
-        if (isDurationDropdownOpen || isServiceDropdownOpen) {
+        if (isDurationDropdownOpen || isServiceDropdownOpen || openSaleMenuId) {
             document.addEventListener('mousedown', handleClickOutside);
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isDurationDropdownOpen, isServiceDropdownOpen]);
+    }, [isDurationDropdownOpen, isServiceDropdownOpen, openSaleMenuId]);
 
     useEffect(() => {
         loadCurrentSheetData();
@@ -888,6 +892,33 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         });
         saveRecords(updated);
         showToast(toastMsg, toastType);
+    };
+
+    // Set specific sale status directly from dropdown menu (تم البيع / لم يتم البيع / إلغاء التظليل)
+    const handleSetSaleStatus = (id, status) => {
+        if (!canEdit) {
+            showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
+            return;
+        }
+        const updated = records.map(r => {
+            if (r.id === id) {
+                return {
+                    ...r,
+                    saleStatus: status,
+                    isSold: status === 'sold' ? true : status === 'unsold' ? false : null,
+                    updated_at: new Date().toISOString()
+                };
+            }
+            return r;
+        });
+        saveRecords(updated);
+        if (status === 'sold') {
+            showToast('تم التحديد: تم البيع (تظليل أخضر فاتح) ✓', 'success');
+        } else if (status === 'unsold') {
+            showToast('تم التحديد: لم يتم البيع (تظليل أحمر فاتح) ✕', 'info');
+        } else {
+            showToast('تم إلغاء التظليل وعودة السجل للوضع الطبيعي', 'info');
+        }
     };
 
     // Delete Selected Records (Bulk soft-delete or permanent delete)
@@ -2427,7 +2458,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className={`px-1 py-1 text-center min-w-[115px] sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
+                                            <td className={`px-1 py-1 text-center min-w-[115px] sticky left-0 ${openSaleMenuId === rec.id ? 'z-30' : 'z-10'} ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -2450,42 +2481,133 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center justify-center gap-1">
-                                                        {/* زر حالة البيع والتظليل: بين النسخ وعلامة التعديل */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleToggleSaleStatus(rec.id)}
-                                                            title={
-                                                                isSold
-                                                                    ? 'تم البيع (انقر للتبديل إلى لم يتم البيع)'
-                                                                    : isUnsold
-                                                                        ? 'لم يتم البيع (انقر لإلغاء التظليل)'
-                                                                        : 'تحديد حالة البيع (تم البيع: أخضر / لم يتم: أحمر)'
-                                                            }
-                                                            className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
-                                                                isSold
-                                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
-                                                                    : isUnsold
-                                                                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
-                                                                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
-                                                            }`}
-                                                        >
-                                                            {isSold ? (
-                                                                <>
-                                                                    <i className="fa-solid fa-check text-[7.5px]"></i>
-                                                                    <span>تم البيع</span>
-                                                                </>
-                                                            ) : isUnsold ? (
-                                                                <>
-                                                                    <i className="fa-solid fa-xmark text-[7.5px]"></i>
-                                                                    <span>لم يتم</span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <i className="fa-solid fa-tag text-[7.5px]"></i>
-                                                                    <span>الحالة</span>
-                                                                </>
+                                                        {/* زر وقائمة حالة البيع والتظليل: بين النسخ وعلامة التعديل */}
+                                                        <div className="relative sale-menu-container">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setOpenSaleMenuId(openSaleMenuId === rec.id ? null : rec.id);
+                                                                }}
+                                                                title="تحديد حالة البيع والتظليل (انقر لاختيار الحالة)"
+                                                                className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
+                                                                    isSold
+                                                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                                                                        : isUnsold
+                                                                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                                                                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
+                                                                }`}
+                                                            >
+                                                                {isSold ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-check text-[7.5px]"></i>
+                                                                        <span>تم البيع</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : isUnsold ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-xmark text-[7.5px]"></i>
+                                                                        <span>لم يتم</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <i className="fa-solid fa-tag text-[7.5px]"></i>
+                                                                        <span>الحالة</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                )}
+                                                            </button>
+
+                                                            {/* القائمة المنبثقة للاختيارات */}
+                                                            {openSaleMenuId === rec.id && (
+                                                                <div
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className={`absolute ${
+                                                                        index >= paginatedRecords.length - 2 && paginatedRecords.length > 2
+                                                                            ? 'bottom-full mb-1.5'
+                                                                            : 'top-full mt-1.5'
+                                                                    } right-0 w-44 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1 z-50 animate-fade-in text-right divide-y divide-slate-100 dark:divide-slate-800`}
+                                                                >
+                                                                    <div className="px-3 py-1.5 text-[9.5px] font-black text-slate-400 dark:text-slate-500 bg-slate-50/70 dark:bg-slate-800/50 flex items-center justify-between">
+                                                                        <span>حالة البيع والتظليل:</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setOpenSaleMenuId(null)}
+                                                                            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                                                                        >
+                                                                            <i className="fa-solid fa-xmark text-[8px]"></i>
+                                                                        </button>
+                                                                    </div>
+
+                                                                    {/* خيار 1: تم البيع */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleSetSaleStatus(rec.id, 'sold');
+                                                                            setOpenSaleMenuId(null);
+                                                                        }}
+                                                                        className={`w-full px-3 py-2 flex items-center justify-between text-xs font-bold transition hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer ${
+                                                                            isSold
+                                                                                ? 'bg-emerald-50/90 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                                                                : 'text-slate-700 dark:text-slate-200'
+                                                                        }`}
+                                                                    >
+                                                                        <span className="flex items-center gap-1.5">
+                                                                            <i className="fa-solid fa-circle-check text-emerald-600 text-xs"></i>
+                                                                            <span>تم البيع</span>
+                                                                        </span>
+                                                                        <span className="text-[8.5px] px-1.5 py-0.5 rounded font-medium bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200">
+                                                                            أخضر فاتح
+                                                                        </span>
+                                                                    </button>
+
+                                                                    {/* خيار 2: لم يتم البيع */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleSetSaleStatus(rec.id, 'unsold');
+                                                                            setOpenSaleMenuId(null);
+                                                                        }}
+                                                                        className={`w-full px-3 py-2 flex items-center justify-between text-xs font-bold transition hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer ${
+                                                                            isUnsold
+                                                                                ? 'bg-rose-50/90 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                                                                                : 'text-slate-700 dark:text-slate-200'
+                                                                        }`}
+                                                                    >
+                                                                        <span className="flex items-center gap-1.5">
+                                                                            <i className="fa-solid fa-circle-xmark text-rose-600 text-xs"></i>
+                                                                            <span>لم يتم البيع</span>
+                                                                        </span>
+                                                                        <span className="text-[8.5px] px-1.5 py-0.5 rounded font-medium bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200">
+                                                                            أحمر فاتح
+                                                                        </span>
+                                                                    </button>
+
+                                                                    {/* خيار 3: إلغاء التظليل */}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            handleSetSaleStatus(rec.id, null);
+                                                                            setOpenSaleMenuId(null);
+                                                                        }}
+                                                                        className={`w-full px-3 py-2 flex items-center justify-between text-xs font-bold transition hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                                                                            !isSold && !isUnsold
+                                                                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                                                                                : 'text-slate-600 dark:text-slate-400'
+                                                                        }`}
+                                                                    >
+                                                                        <span className="flex items-center gap-1.5">
+                                                                            <i className="fa-solid fa-ban text-slate-400 text-xs"></i>
+                                                                            <span>إلغاء التظليل</span>
+                                                                        </span>
+                                                                        <span className="text-[8.5px] px-1.5 py-0.5 rounded font-medium bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                                                            عادي
+                                                                        </span>
+                                                                    </button>
+                                                                </div>
                                                             )}
-                                                        </button>
+                                                        </div>
 
                                                         {canEdit && (
                                                             <button
