@@ -315,7 +315,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         visaAccount: '',
         notes: '',
         accountCreatedDate: '',
-        reminderDays: ''
+        reminderDays: '',
+        saleStatus: ''
     });
 
     // Stored accounts loaded from account_data for dropdown selection
@@ -560,7 +561,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             visa: '',
             visaAccount: '',
             accountCreatedDate: '',
-            reminderDays: ''
+            reminderDays: '',
+            saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
+            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
         } : currentSheetId === 'account_data' ? {
             email: formData.email,
             password: formData.password,
@@ -576,7 +579,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             selectedAccount: '',
             notes: formData.notes,
             accountCreatedDate: formData.accountCreatedDate || new Date().toISOString().slice(0, 10),
-            reminderDays: formData.reminderDays || ''
+            reminderDays: formData.reminderDays || '',
+            saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
+            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
         } : {
             email: formData.email,
             password: formData.password,
@@ -592,7 +597,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             selectedAccount: formData.selectedAccount || '',
             notes: formData.notes,
             accountCreatedDate: '',
-            reminderDays: ''
+            reminderDays: '',
+            saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
+            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
         };
 
         if (editingRecord) {
@@ -638,7 +645,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             visaAccount: '',
             notes: '',
             accountCreatedDate: '',
-            reminderDays: ''
+            reminderDays: '',
+            saleStatus: ''
         });
     };
 
@@ -661,7 +669,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             visaAccount: rec.visaAccount || '',
             notes: rec.notes || '',
             accountCreatedDate: rec.accountCreatedDate || '',
-            reminderDays: rec.reminderDays || ''
+            reminderDays: rec.reminderDays || '',
+            saleStatus: rec.saleStatus || (rec.isSold === true ? 'sold' : rec.isSold === false ? 'unsold' : '')
         });
         setShowAddModal(true);
     };
@@ -842,6 +851,43 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         });
         saveRecords(updated);
         showToast('تم تحديث حالة الدفع بنجاح ✓', 'success');
+    };
+
+    // Quick toggle sale status directly from table (تم البيع / لم يتم البيع / إلغاء التظليل)
+    const handleToggleSaleStatus = (id) => {
+        if (!canEdit) {
+            showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
+            return;
+        }
+        let toastMsg = '';
+        let toastType = 'info';
+        const updated = records.map(r => {
+            if (r.id === id) {
+                let nextStatus;
+                if (r.saleStatus === 'sold' || r.isSold === true) {
+                    nextStatus = 'unsold';
+                    toastMsg = 'تم التحديد: لم يتم البيع (تظليل أحمر) ✕';
+                    toastType = 'info';
+                } else if (r.saleStatus === 'unsold' || r.isSold === false) {
+                    nextStatus = null;
+                    toastMsg = 'تم إلغاء التظليل وعودة السجل للونه الطبيعي';
+                    toastType = 'info';
+                } else {
+                    nextStatus = 'sold';
+                    toastMsg = 'تم التحديد: تم البيع (تظليل أخضر فاتح) ✓';
+                    toastType = 'success';
+                }
+                return {
+                    ...r,
+                    saleStatus: nextStatus,
+                    isSold: nextStatus === 'sold' ? true : nextStatus === 'unsold' ? false : null,
+                    updated_at: new Date().toISOString()
+                };
+            }
+            return r;
+        });
+        saveRecords(updated);
+        showToast(toastMsg, toastType);
     };
 
     // Delete Selected Records (Bulk soft-delete or permanent delete)
@@ -1873,7 +1919,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </th>
                                     </>
                                 )}
-                                <th className="px-1 py-1.5 text-center min-w-[56px] text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80">إجراءات</th>
+                                 <th className="px-1 py-1.5 text-center min-w-[115px] text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80">إجراءات</th>
                             </tr>
                         </thead>
 
@@ -1901,10 +1947,25 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isPass2Visible = visibleSecrets[`${rec.id}_pass2`];
                                     const isVisaVisible = visibleSecrets[`${rec.id}_visa`];
 
+                                    const isSold = rec.saleStatus === 'sold' || rec.isSold === true;
+                                    const isUnsold = rec.saleStatus === 'unsold' || rec.isSold === false;
+
+                                    const rowBgClass = isSold
+                                        ? 'bg-emerald-50/80 dark:bg-emerald-950/40 hover:bg-emerald-100/90 dark:hover:bg-emerald-900/50'
+                                        : isUnsold
+                                            ? 'bg-rose-50/80 dark:bg-rose-950/40 hover:bg-rose-100/90 dark:hover:bg-rose-900/50'
+                                            : 'hover:bg-indigo-50/30 dark:hover:bg-slate-800/50';
+
+                                    const stickyActionBgClass = isSold
+                                        ? 'bg-emerald-50/95 dark:bg-emerald-950/90 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-900'
+                                        : isUnsold
+                                            ? 'bg-rose-50/95 dark:bg-rose-950/90 group-hover:bg-rose-100 dark:group-hover:bg-rose-900'
+                                            : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90';
+
                                     return (
                                         <tr
                                             key={rec.id}
-                                            className="transition-colors hover:bg-indigo-50/30 dark:hover:bg-slate-800/50 group"
+                                            className={`transition-colors group ${rowBgClass}`}
                                         >
                                             {/* Row # */}
                                             <td className="px-1 py-1 text-center font-mono text-slate-400 text-[10px]">
@@ -2318,7 +2379,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-slate-300 dark:text-slate-600">-</span>
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
                                                         )}
                                                     </td>
 
@@ -2338,7 +2399,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 </button>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-slate-300 dark:text-slate-600">-</span>
+                                                            <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
                                                         )}
                                                     </td>
 
@@ -2366,7 +2427,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className="px-1 py-1 text-center min-w-[56px] sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90 shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-100 dark:border-slate-800">
+                                            <td className={`px-1 py-1 text-center min-w-[115px] sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isSold ? 'border-emerald-200/80 dark:border-emerald-800/80' : isUnsold ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -2389,6 +2450,43 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </div>
                                                 ) : (
                                                     <div className="flex items-center justify-center gap-1">
+                                                        {/* زر حالة البيع والتظليل: بين النسخ وعلامة التعديل */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleToggleSaleStatus(rec.id)}
+                                                            title={
+                                                                isSold
+                                                                    ? 'تم البيع (انقر للتبديل إلى لم يتم البيع)'
+                                                                    : isUnsold
+                                                                        ? 'لم يتم البيع (انقر لإلغاء التظليل)'
+                                                                        : 'تحديد حالة البيع (تم البيع: أخضر / لم يتم: أحمر)'
+                                                            }
+                                                            className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
+                                                                isSold
+                                                                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                                                                    : isUnsold
+                                                                        ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                                                                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
+                                                            }`}
+                                                        >
+                                                            {isSold ? (
+                                                                <>
+                                                                    <i className="fa-solid fa-check text-[7.5px]"></i>
+                                                                    <span>تم البيع</span>
+                                                                </>
+                                                            ) : isUnsold ? (
+                                                                <>
+                                                                    <i className="fa-solid fa-xmark text-[7.5px]"></i>
+                                                                    <span>لم يتم</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <i className="fa-solid fa-tag text-[7.5px]"></i>
+                                                                    <span>الحالة</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleOpenEdit(rec)}
@@ -3003,6 +3101,53 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </div>
                                 </div>
                             )}
+
+                            {/* حالة البيع والتظليل */}
+                            <div className="space-y-1.5">
+                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    حالة البيع والتظليل في الجدول
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, saleStatus: '' })}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                            !formData.saleStatus
+                                                ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-800 dark:text-white shadow-xs'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
+                                        }`}
+                                    >
+                                        <i className="fa-solid fa-minus text-[10px]"></i>
+                                        <span>بدون تظليل</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, saleStatus: 'sold' })}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                            formData.saleStatus === 'sold'
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                                                : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                                        }`}
+                                    >
+                                        <i className="fa-solid fa-circle-check text-xs"></i>
+                                        <span>تم البيع (أخضر)</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, saleStatus: 'unsold' })}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                            formData.saleStatus === 'unsold'
+                                                ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
+                                                : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
+                                        }`}
+                                    >
+                                        <i className="fa-solid fa-circle-xmark text-xs"></i>
+                                        <span>لم يتم (أحمر)</span>
+                                    </button>
+                                </div>
+                            </div>
 
                             {/* Notes Field (Directly under duration / visa for all sheets) */}
                             <div>
