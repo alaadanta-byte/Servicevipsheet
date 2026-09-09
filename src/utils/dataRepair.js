@@ -78,6 +78,12 @@ export const sanitizeRecord = (r, idx = 0) => {
     }
     const rawIsSold = rawSaleStatus === 'sold' ? true : rawSaleStatus === 'unsold' ? false : (typeof r.isSold === 'boolean' ? r.isSold : null);
 
+    // Reminder status: 'fulfilled' (استوفى باقي المدة) vs 'active'
+    let rawReminderStatus = r.reminderStatus ?? r['حالة التذكير'] ?? (r.isReminderFulfilled ? 'fulfilled' : 'active');
+    if (rawReminderStatus !== 'fulfilled') {
+        rawReminderStatus = 'active';
+    }
+
     return {
         id: String(r.id || `REC-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`),
         name: String(rawName).trim(),
@@ -96,6 +102,7 @@ export const sanitizeRecord = (r, idx = 0) => {
         visaAccount: String(rawVisaAccount).trim(),
         accountCreatedDate: finalAccountCreatedDate,
         reminderDays: finalReminderDays,
+        reminderStatus: rawReminderStatus,
         notes: String(rawNotes).trim(),
         deletedAt: r.deletedAt ? String(r.deletedAt) : '',
         originSheetId: r.originSheetId ? String(r.originSheetId) : '',

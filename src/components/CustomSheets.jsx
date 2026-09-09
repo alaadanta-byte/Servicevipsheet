@@ -335,6 +335,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         notes: '',
         accountCreatedDate: '',
         reminderDays: '',
+        reminderStatus: 'active',
         saleStatus: ''
     });
 
@@ -644,6 +645,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             notes: formData.notes,
             accountCreatedDate: formData.accountCreatedDate || new Date().toISOString().slice(0, 10),
             reminderDays: formData.reminderDays || '',
+            reminderStatus: formData.reminderStatus || (editingRecord?.reminderStatus || 'active'),
             saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
             isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
         } : {
@@ -664,6 +666,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             notes: formData.notes,
             accountCreatedDate: '',
             reminderDays: '',
+            reminderStatus: 'active',
             saleStatus: null,
             isSold: null
         };
@@ -714,6 +717,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             notes: '',
             accountCreatedDate: '',
             reminderDays: '',
+            reminderStatus: 'active',
             saleStatus: ''
         });
     };
@@ -740,6 +744,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             notes: rec.notes || '',
             accountCreatedDate: rec.accountCreatedDate || '',
             reminderDays: rec.reminderDays || '',
+            reminderStatus: rec.reminderStatus || 'active',
             saleStatus: rec.saleStatus || (rec.isSold === true ? 'sold' : rec.isSold === false ? 'unsold' : '')
         });
         setShowAddModal(true);
@@ -1002,6 +1007,27 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         showToast(`تم استيراد بيانات الحساب (${acc.email}) بنجاح ✓`, 'success');
     };
 
+    // Quick toggle reminder status directly from table (متبقي X يوم للتذكير / استوفى باقي المدة)
+    const handleToggleReminderStatus = (id) => {
+        if (!canEdit) {
+            showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
+            return;
+        }
+        let toastMsg = '';
+        const updated = records.map(r => {
+            if (r.id === id) {
+                const nextStatus = r.reminderStatus === 'fulfilled' ? 'active' : 'fulfilled';
+                toastMsg = nextStatus === 'fulfilled'
+                    ? 'تم التحديد: استوفى باقي المدة ✓'
+                    : 'تم التحديد: تذكير نشط (حساب المدة المتبقية) ✓';
+                return { ...r, reminderStatus: nextStatus, updated_at: new Date().toISOString() };
+            }
+            return r;
+        });
+        saveRecords(updated);
+        showToast(toastMsg, 'success');
+    };
+
     // Quick toggle sale status directly from table (تم البيع / لم يتم البيع / إلغاء التظليل)
     const handleToggleSaleStatus = (id) => {
         if (!canEdit) {
@@ -1232,10 +1258,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     'حساب الفيزا (Visa Account)': r.visaAccount || ''
                 };
                 if (currentSheetId === 'account_data') {
+                    const isFulfilled = r.reminderStatus === 'fulfilled';
                     const rem = calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at);
                     base['تاريخ إنشاء الحساب (Creation Date)'] = r.accountCreatedDate || '';
                     base['فترة التذكير بالأيام (Reminder Days)'] = r.reminderDays || '';
-                    base['حالة التذكير'] = rem.text || '';
+                    base['حالة التذكير'] = isFulfilled ? 'استوفى باقي المدة' : (rem.text || '');
                 } else {
                     base['بيانات الحساب (Account)'] = r.selectedAccount || '';
                 }
@@ -2728,39 +2755,79 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         })()}
                                                     </td>
 
-                                                    {/* Account Reminder Status */}
+                                                    {/* Account Reminder Status (متبقي X يوم للتذكير / استوفى باقي المدة) */}
                                                     <td className="px-1.5 py-1 font-medium">
                                                         {(() => {
+                                                            const isFulfilled = rec.reminderStatus === 'fulfilled';
                                                             const effectiveDate = rec.accountCreatedDate || (rec.created_at ? String(rec.created_at).slice(0, 10) : '');
                                                             const reminder = calculateAccountReminder(effectiveDate, rec.reminderDays, rec.created_at);
-                                                            if (reminder.status === 'none') {
-                                                                return <span className="text-slate-300 dark:text-slate-600">-</span>;
+
+                                                            if (isFulfilled) {
+                                                                const displayText = 'استوفى باقي المدة';
+                                                                return (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleReminderStatus(rec.id)}
+                                                                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800/60 shadow-xs cursor-pointer hover:scale-105 active:scale-95 transition whitespace-nowrap"
+                                                                            title="انقر للتبديل إلى (حساب التذكير النشط)"
+                                                                        >
+                                                                            <i className="fa-solid fa-circle-check text-[8.5px] text-emerald-500"></i>
+                                                                            <span>{displayText}</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleCopy(displayText, `rem_acc_${rec.id}`)}
+                                                                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
+                                                                            title="نسخ حالة التذكير"
+                                                                        >
+                                                                            <i className={`fa-solid ${copiedField === `rem_acc_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
+                                                                        </button>
+                                                                    </div>
+                                                                );
                                                             }
+
+                                                            if (reminder.status === 'none') {
+                                                                return (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleToggleReminderStatus(rec.id)}
+                                                                            className="text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs px-1 cursor-pointer font-bold"
+                                                                            title="انقر للتبديل إلى (استوفى باقي المدة)"
+                                                                        >
+                                                                            -
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            }
+
+                                                            const badgeClass = reminder.status === 'expired'
+                                                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 shadow-xs'
+                                                                : reminder.status === 'expiring-today'
+                                                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 shadow-xs animate-pulse'
+                                                                : reminder.status === 'urgent'
+                                                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 shadow-xs'
+                                                                : reminder.status === 'warning'
+                                                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/60 shadow-xs'
+                                                                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs';
+
+                                                            const iconClass = reminder.status === 'expired' ? 'fa-circle-xmark text-[8px] text-rose-500' :
+                                                                reminder.status === 'expiring-today' ? 'fa-bell text-[8px] text-amber-500 animate-bounce' :
+                                                                reminder.status === 'urgent' ? 'fa-triangle-exclamation text-[8px] text-rose-500' :
+                                                                reminder.status === 'warning' ? 'fa-clock text-[8px] text-amber-500' :
+                                                                'fa-bell text-[8px] text-purple-500';
+
                                                             return (
                                                                 <div className="flex items-center gap-1">
-                                                                    <span
-                                                                        title={`تاريخ الإنشاء: ${reminder.createdDate || effectiveDate || '-'} | موعد التذكير: ${reminder.targetDate || '-'} (${reminder.reminderDays || rec.reminderDays || '-'} يوم)`}
-                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap ${
-                                                                            reminder.status === 'expired'
-                                                                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 shadow-xs'
-                                                                                : reminder.status === 'expiring-today'
-                                                                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-800/60 shadow-xs animate-pulse'
-                                                                                : reminder.status === 'urgent'
-                                                                                ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-200/80 dark:border-rose-900/60 shadow-xs'
-                                                                                : reminder.status === 'warning'
-                                                                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-900/60 shadow-xs'
-                                                                                : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs'
-                                                                        }`}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleToggleReminderStatus(rec.id)}
+                                                                        title={`انقر للتبديل إلى (استوفى باقي المدة) | تاريخ الإنشاء: ${reminder.createdDate || effectiveDate || '-'} | موعد التذكير: ${reminder.targetDate || '-'} (${reminder.reminderDays || rec.reminderDays || '-'} يوم)`}
+                                                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap cursor-pointer hover:scale-105 active:scale-95 transition border ${badgeClass}`}
                                                                     >
-                                                                        <i className={`fa-solid ${
-                                                                            reminder.status === 'expired' ? 'fa-circle-xmark text-[8px] text-rose-500' :
-                                                                            reminder.status === 'expiring-today' ? 'fa-bell text-[8px] text-amber-500 animate-bounce' :
-                                                                            reminder.status === 'urgent' ? 'fa-triangle-exclamation text-[8px] text-rose-500' :
-                                                                            reminder.status === 'warning' ? 'fa-clock text-[8px] text-amber-500' :
-                                                                            'fa-bell text-[8px] text-purple-500'
-                                                                        }`}></i>
+                                                                        <i className={`fa-solid ${iconClass}`}></i>
                                                                         <span>{reminder.text}</span>
-                                                                    </span>
+                                                                    </button>
                                                                     <button
                                                                         onClick={() => handleCopy(reminder.text, `rem_acc_${rec.id}`)}
                                                                         className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
@@ -3703,22 +3770,68 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         ))}
                                     </div>
 
+                                    {/* Reminder Status Selector: تذكير نشط vs استوفى باقي المدة */}
+                                    <div className="pt-2 border-t border-purple-200/50 dark:border-purple-800/40">
+                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                            حالة التذكير
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, reminderStatus: 'active' })}
+                                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                                                    formData.reminderStatus !== 'fulfilled'
+                                                        ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-xs'
+                                                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-clock text-purple-500 text-xs"></i>
+                                                <span>تذكير نشط (حساب المدة)</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({ ...formData, reminderStatus: 'fulfilled' })}
+                                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                                                    formData.reminderStatus === 'fulfilled'
+                                                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
+                                                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
+                                                }`}
+                                            >
+                                                <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
+                                                <span>استوفى باقي المدة</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     {/* Live calculation info box */}
-                                    {formData.accountCreatedDate && formData.reminderDays && parseInt(formData.reminderDays) > 0 && (() => {
-                                        const reminderPreview = calculateAccountReminder(formData.accountCreatedDate, formData.reminderDays);
-                                        if (reminderPreview.status === 'none') return null;
-                                        return (
-                                            <div className="mt-1.5 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/90 dark:border-purple-800/70 flex items-center justify-between text-xs text-purple-950 dark:text-purple-200">
-                                                <div className="flex items-center gap-2">
-                                                    <i className="fa-solid fa-calendar-check text-purple-600 dark:text-purple-400"></i>
-                                                    <span>موعد التذكير: <strong>{reminderPreview.targetDate}</strong></span>
-                                                </div>
-                                                <span className="font-bold px-2 py-0.5 rounded-md bg-purple-200/80 dark:bg-purple-800/90 text-[10.5px]">
-                                                    {reminderPreview.text}
-                                                </span>
+                                    {formData.reminderStatus === 'fulfilled' ? (
+                                        <div className="mt-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800/70 flex items-center justify-between text-xs text-emerald-950 dark:text-emerald-200">
+                                            <div className="flex items-center gap-2">
+                                                <i className="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400"></i>
+                                                <span className="font-bold">حالة الحساب: تم استيفاء باقي المدة</span>
                                             </div>
-                                        );
-                                    })()}
+                                            <span className="font-bold px-2 py-0.5 rounded-md bg-emerald-200/80 dark:bg-emerald-800/90 text-[10.5px]">
+                                                استوفى باقي المدة ✓
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        formData.accountCreatedDate && formData.reminderDays && parseInt(formData.reminderDays) > 0 && (() => {
+                                            const reminderPreview = calculateAccountReminder(formData.accountCreatedDate, formData.reminderDays);
+                                            if (reminderPreview.status === 'none') return null;
+                                            return (
+                                                <div className="mt-1.5 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/90 dark:border-purple-800/70 flex items-center justify-between text-xs text-purple-950 dark:text-purple-200">
+                                                    <div className="flex items-center gap-2">
+                                                        <i className="fa-solid fa-calendar-check text-purple-600 dark:text-purple-400"></i>
+                                                        <span>موعد التذكير: <strong>{reminderPreview.targetDate}</strong></span>
+                                                    </div>
+                                                    <span className="font-bold px-2 py-0.5 rounded-md bg-purple-200/80 dark:bg-purple-800/90 text-[10.5px]">
+                                                        {reminderPreview.text}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()
+                                    )}
                                 </div>
                             )}
 
