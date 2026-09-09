@@ -295,6 +295,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const durationDropdownRef = useRef(null);
     const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
     const serviceDropdownRef = useRef(null);
+    const [isAccountEmailDropdownOpen, setIsAccountEmailDropdownOpen] = useState(false);
+    const accountEmailDropdownRef = useRef(null);
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
     const [saleMenuAnchor, setSaleMenuAnchor] = useState(null); // { id, top, left, saleStatus, isSold }
@@ -439,7 +441,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         return () => clearInterval(interval);
     }, [currentSheetId]);
 
-    // Close duration & service dropdowns when clicking outside
+    // Close duration, service & account email dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (durationDropdownRef.current && !durationDropdownRef.current.contains(e.target)) {
@@ -448,12 +450,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target)) {
                 setIsServiceDropdownOpen(false);
             }
+            if (accountEmailDropdownRef.current && !accountEmailDropdownRef.current.contains(e.target)) {
+                setIsAccountEmailDropdownOpen(false);
+            }
         };
-        if (isDurationDropdownOpen || isServiceDropdownOpen) {
+        if (isDurationDropdownOpen || isServiceDropdownOpen || isAccountEmailDropdownOpen) {
             document.addEventListener('mousedown', handleClickOutside);
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isDurationDropdownOpen, isServiceDropdownOpen]);
+    }, [isDurationDropdownOpen, isServiceDropdownOpen, isAccountEmailDropdownOpen]);
 
     // Close floating sale menu on scroll or resize
     useEffect(() => {
@@ -959,6 +964,42 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         });
         saveRecords(updated);
         showToast(toastMsg || 'تم تحديث حالة الدفع بنجاح ✓', 'success');
+    };
+
+    // Quick toggle device type directly from table (جهاز / جهازين)
+    const handleToggleDeviceType = (id) => {
+        if (!canEdit) {
+            showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
+            return;
+        }
+        let toastMsg = '';
+        const updated = records.map(r => {
+            if (r.id === id) {
+                const nextType = r.deviceType === 'جهازين' ? 'جهاز' : 'جهازين';
+                toastMsg = nextType === 'جهازين'
+                    ? 'تم التغيير إلى: جهازين ✓'
+                    : 'تم التغيير إلى: جهاز (1 جهاز) ✓';
+                return { ...r, deviceType: nextType, updated_at: new Date().toISOString() };
+            }
+            return r;
+        });
+        saveRecords(updated);
+        showToast(toastMsg, 'success');
+    };
+
+    // Import full account data from "بيانات الحساب" into form
+    const handleSelectAccountData = (acc) => {
+        if (!acc) return;
+        setFormData(prev => ({
+            ...prev,
+            email: acc.email || prev.email,
+            password: acc.password || prev.password,
+            password2: acc.password2 || prev.password2,
+            selectedAccount: acc.email || acc.selectedAccount || prev.selectedAccount,
+            notes: prev.notes ? (prev.notes.includes(acc.notes || '') ? prev.notes : `${prev.notes} | ${acc.notes || ''}`.trim()) : (acc.notes || '')
+        }));
+        setIsAccountEmailDropdownOpen(false);
+        showToast(`تم استيراد بيانات الحساب (${acc.email}) بنجاح ✓`, 'success');
     };
 
     // Quick toggle sale status directly from table (تم البيع / لم يتم البيع / إلغاء التظليل)
@@ -2142,7 +2183,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         {currentSheetId !== 'merchant_data' && (
                                             <th
                                                 onClick={() => setSortBy({ field: 'deviceType', asc: sortBy.field === 'deviceType' ? !sortBy.asc : true })}
-                                                className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
+                                                className="px-1.5 py-1 cursor-pointer hover:text-indigo-600 transition min-w-[80px]"
                                             >
                                                 <div className="flex items-center gap-1">
                                                     <span>نوع الاشتراك</span>
@@ -2152,7 +2193,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         )}
                                         <th
                                             onClick={() => setSortBy({ field: 'paymentStatus', asc: sortBy.field === 'paymentStatus' ? !sortBy.asc : true })}
-                                            className="px-1 py-1 cursor-pointer hover:text-indigo-600 transition"
+                                            className="px-1.5 py-1 cursor-pointer hover:text-indigo-600 transition min-w-[80px]"
                                         >
                                             <div className="flex items-center gap-1">
                                                 <span>حالة الدفع</span>
@@ -2615,18 +2656,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </td>
                                                     {/* Device Type (نوع الاشتراك: جهاز ولا جهازين) */}
                                                     {currentSheetId !== 'merchant_data' && (
-                                                        <td className="px-1 py-1 font-medium">
-                                                            {rec.deviceType === 'جهازين' ? (
-                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/60 shadow-xs whitespace-nowrap">
-                                                                    <i className="fa-solid fa-laptop text-[8px]"></i>
-                                                                    <span>جهازين</span>
-                                                                </span>
-                                                            ) : (
-                                                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 dark:border-blue-800/60 shadow-xs whitespace-nowrap">
-                                                                    <i className="fa-solid fa-mobile-screen text-[8px]"></i>
-                                                                    <span>جهاز</span>
-                                                                </span>
-                                                            )}
+                                                        <td className="px-1.5 py-1 font-medium">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleToggleDeviceType(rec.id)}
+                                                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-bold border shadow-xs cursor-pointer hover:scale-105 active:scale-95 transition whitespace-nowrap ${
+                                                                    rec.deviceType === 'جهازين'
+                                                                        ? 'bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border-purple-200/80 dark:border-purple-800/60'
+                                                                        : 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border-blue-200/80 dark:border-blue-800/60'
+                                                                }`}
+                                                                title="انقر للتبديل السريع بين (جهاز) و (جهازين)"
+                                                            >
+                                                                <i className={`fa-solid ${rec.deviceType === 'جهازين' ? 'fa-laptop text-purple-600 dark:text-purple-400 text-[9px]' : 'fa-display text-blue-600 dark:text-blue-400 text-[9px]'}`}></i>
+                                                                <span>{rec.deviceType === 'جهازين' ? 'جهازين' : 'جهاز'}</span>
+                                                            </button>
                                                         </td>
                                                     )}
                                                     {/* Payment Status (حالة الدفع: مدفوع / غير مدفوع) */}
@@ -3077,20 +3120,168 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 </div>
                             ) : (
                                 <>
-                            {/* Email */}
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    البريد الإلكتروني (Email)
-                                </label>
+                            {/* Email with Account Data Import Arrow & Dropdown (سهم لاستيراد بيانات الحساب + إمكانية الكتابة يدوي) */}
+                            <div className="space-y-1.5" ref={accountEmailDropdownRef}>
+                                <div className="flex items-center justify-between">
+                                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                        البريد الإلكتروني (Email)
+                                    </label>
+                                    {isClientOrMerchant && availableAccounts.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                refreshAvailableAccounts();
+                                                setIsAccountEmailDropdownOpen(prev => !prev);
+                                            }}
+                                            className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-0.5 rounded-full border border-indigo-200/70 dark:border-indigo-800/60 transition cursor-pointer"
+                                            title="فتح قائمة الحسابات من شيت (بيانات الحساب) لاستيراد بياناتها"
+                                        >
+                                            <i className="fa-solid fa-shield-halved text-[10px]"></i>
+                                            <span>استيراد من بيانات الحساب ({availableAccounts.length})</span>
+                                            <i className={`fa-solid fa-chevron-down text-[8px] transition-transform duration-200 ${isAccountEmailDropdownOpen ? 'rotate-180' : ''}`}></i>
+                                        </button>
+                                    )}
+                                </div>
+
                                 <div className="relative">
-                                    <i className="fa-solid fa-envelope absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    {/* Email Input (يدوي - كتابة حرة دائماً) */}
                                     <input
                                         type="text"
                                         value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="example@domain.com"
-                                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dir-ltr text-right"
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, email: e.target.value });
+                                            if (!isAccountEmailDropdownOpen && isClientOrMerchant && availableAccounts.length > 0) {
+                                                setIsAccountEmailDropdownOpen(true);
+                                            }
+                                        }}
+                                        placeholder="example@domain.com أو اختر بالسهم..."
+                                        className={`w-full bg-slate-50 dark:bg-slate-800 border-2 ${
+                                            isAccountEmailDropdownOpen
+                                                ? 'border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
+                                                : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300'
+                                        } rounded-2xl ${isClientOrMerchant ? 'pr-9 pl-10' : 'pr-9 pl-4'} py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 dir-ltr text-right transition font-mono`}
                                     />
+
+                                    {/* Envelope Icon */}
+                                    <i className="fa-solid fa-envelope absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none"></i>
+
+                                    {/* Arrow Button inside Input on Left (سهم لاختيار حساب واستيراد بياناته بالكامل) */}
+                                    {isClientOrMerchant && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                refreshAvailableAccounts();
+                                                setIsAccountEmailDropdownOpen(prev => !prev);
+                                            }}
+                                            className={`absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-xl flex items-center justify-center transition cursor-pointer select-none ${
+                                                isAccountEmailDropdownOpen
+                                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                                    : 'bg-slate-200/80 hover:bg-indigo-100 text-slate-600 hover:text-indigo-600 dark:bg-slate-700 dark:hover:bg-slate-650 dark:text-slate-300'
+                                            }`}
+                                            title="انقر هنا لعرض قائمة الحسابات من (بيانات الحساب) واختيار حساب لاستيراد كافة بياناته تلقائياً"
+                                        >
+                                            <i className={`fa-solid fa-chevron-down text-[10px] transition-transform duration-200 ${isAccountEmailDropdownOpen ? 'rotate-180' : ''}`}></i>
+                                        </button>
+                                    )}
+
+                                    {/* Dropdown Menu of Accounts from "بيانات الحساب" */}
+                                    {isClientOrMerchant && isAccountEmailDropdownOpen && (
+                                        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-fade-in max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                                            <div className="p-2.5 bg-slate-50 dark:bg-slate-850/90 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 border-b border-slate-200/80 dark:border-slate-700/80 sticky top-0 z-10 backdrop-blur-xs">
+                                                <span className="flex items-center gap-1.5">
+                                                    <i className="fa-solid fa-shield-halved text-indigo-500"></i>
+                                                    <span>اختر حساباً من (بيانات الحساب) لاستيراد بياناته:</span>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsAccountEmailDropdownOpen(false)}
+                                                    className="text-slate-400 hover:text-rose-500 p-1 transition rounded-lg"
+                                                >
+                                                    <i className="fa-solid fa-xmark text-xs"></i>
+                                                </button>
+                                            </div>
+
+                                            {availableAccounts.length === 0 ? (
+                                                <div className="p-4 text-center text-xs text-slate-400">
+                                                    <i className="fa-solid fa-circle-exclamation text-amber-500 mb-1 text-base block"></i>
+                                                    <span>لا توجد حسابات مسجلة في شيت «بيانات الحساب» بعد</span>
+                                                </div>
+                                            ) : (
+                                                (() => {
+                                                    const searchLower = (formData.email || '').trim().toLowerCase();
+                                                    const filtered = searchLower
+                                                        ? availableAccounts.filter(a => (a.email && a.email.toLowerCase().includes(searchLower)) || (a.notes && a.notes.toLowerCase().includes(searchLower)))
+                                                        : availableAccounts;
+
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <div className="p-3.5 text-center text-xs text-slate-400">
+                                                                <span>لا يوجد إيميل مطابق في بيانات الحساب، يمكنك المتابعة والكتابة يدوياً</span>
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return filtered.map(acc => {
+                                                        const isCurrent = formData.email && acc.email && formData.email.toLowerCase() === acc.email.toLowerCase();
+                                                        const isSold = acc.saleStatus === 'sold' || acc.isSold === true;
+                                                        return (
+                                                            <button
+                                                                key={acc.id}
+                                                                type="button"
+                                                                onClick={() => handleSelectAccountData(acc)}
+                                                                className={`w-full p-3 text-right flex items-center justify-between gap-3 transition cursor-pointer select-none ${
+                                                                    isCurrent
+                                                                        ? 'bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200'
+                                                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
+                                                                }`}
+                                                            >
+                                                                {/* Import Action badge */}
+                                                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                                    <span className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 shadow-xs">
+                                                                        <i className="fa-solid fa-download text-[9px]"></i>
+                                                                        <span>استيراد</span>
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* Account Details Preview */}
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                                        <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 truncate dir-ltr text-right block select-all">
+                                                                            {acc.email}
+                                                                        </span>
+                                                                        {isSold && (
+                                                                            <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
+                                                                                تم البيع
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 text-[10.5px] text-slate-400 font-mono">
+                                                                        {acc.password && (
+                                                                            <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                                                                <i className="fa-solid fa-lock text-[8px]"></i>
+                                                                                <span>{acc.password}</span>
+                                                                            </span>
+                                                                        )}
+                                                                        {acc.password2 && (
+                                                                            <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                                                                                <i className="fa-solid fa-key text-[8px]"></i>
+                                                                                <span>{acc.password2}</span>
+                                                                            </span>
+                                                                        )}
+                                                                        {acc.notes && (
+                                                                            <span className="text-slate-400 truncate max-w-[140px]" title={acc.notes}>
+                                                                                • {acc.notes}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        );
+                                                    });
+                                                })()
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
