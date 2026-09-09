@@ -298,6 +298,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
     const [saleMenuAnchor, setSaleMenuAnchor] = useState(null); // { id, top, left, saleStatus, isSold }
+    const [showCloneModal, setShowCloneModal] = useState(false);
+    const [cloneSourceEmail, setCloneSourceEmail] = useState('');
+    const [cloneTargetRecord, setCloneTargetRecord] = useState(null);
+    const [cloneNewEmail, setCloneNewEmail] = useState('');
+    const [cloneCount, setCloneCount] = useState(1);
 
     // Notification toast
     const [toast, setToast] = useState(null);
@@ -733,6 +738,45 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             saleStatus: rec.saleStatus || (rec.isSold === true ? 'sold' : rec.isSold === false ? 'unsold' : '')
         });
         setShowAddModal(true);
+    };
+
+    // Clone record by email (تكرار بيان بنفس التفاصيل)
+    const handleExecuteClone = () => {
+        if (!cloneTargetRecord) {
+            showToast('يرجى تحديد أو إدخال بريد إلكتروني صحيح للبيان المراد نسخه', 'warning');
+            return;
+        }
+
+        const finalEmail = (cloneNewEmail && cloneNewEmail.trim()) ? cloneNewEmail.trim() : cloneTargetRecord.email;
+        const count = Math.max(1, parseInt(cloneCount) || 1);
+
+        const newClones = [];
+        for (let i = 0; i < count; i++) {
+            const now = new Date().toISOString();
+            const cloneId = 'REC-' + Date.now() + '-' + i + '-' + Math.random().toString(36).substring(2, 7);
+            const { id, created_at, updated_at, ...restRecord } = cloneTargetRecord;
+            newClones.push({
+                ...restRecord,
+                id: cloneId,
+                email: finalEmail,
+                created_at: now,
+                updated_at: now
+            });
+        }
+
+        const updated = [...newClones, ...records];
+        saveRecords(updated);
+        showToast(
+            count === 1 
+                ? `تم تكرار البيان بنجاح للإيميل (${finalEmail}) ✓` 
+                : `تم تكرار البيان ${count} مرات بنجاح ✓`, 
+            'success'
+        );
+        setShowCloneModal(false);
+        setCloneSourceEmail('');
+        setCloneTargetRecord(null);
+        setCloneNewEmail('');
+        setCloneCount(1);
     };
 
     // Move records to trash
@@ -1884,6 +1928,24 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                     {/* Sorting & Page Sizing */}
                     <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-between md:justify-end">
+                        {/* Duplicate Record Button (تكرار بيان) - Only for client_data and merchant_data */}
+                        {isClientOrMerchant && canAdd && (
+                            <button
+                                onClick={() => {
+                                    setCloneSourceEmail('');
+                                    setCloneTargetRecord(null);
+                                    setCloneNewEmail('');
+                                    setCloneCount(1);
+                                    setShowCloneModal(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition shadow-sm select-none cursor-pointer"
+                                title="تكرار بيان: نسخ بيان بنفس كافة التفاصيل بواسطة الإيميل"
+                            >
+                                <i className="fa-solid fa-copy text-xs text-emerald-600 dark:text-emerald-400"></i>
+                                <span>تكرار</span>
+                            </button>
+                        )}
+
                         {/* Chronological Sort Toggle Button */}
                         <button
                             onClick={() => setSortBy(prev => ({
@@ -2837,6 +2899,22 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             </button>
                                                         )}
 
+                                                        {isClientOrMerchant && canAdd && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setCloneSourceEmail(rec.email || '');
+                                                                    setCloneTargetRecord(rec);
+                                                                    setCloneNewEmail('');
+                                                                    setCloneCount(1);
+                                                                    setShowCloneModal(true);
+                                                                }}
+                                                                className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded transition cursor-pointer"
+                                                                title="تكرار هذا البيان بنفس التفاصيل"
+                                                            >
+                                                                <i className="fa-solid fa-copy text-[8.5px]"></i>
+                                                            </button>
+                                                        )}
+
                                                         {canEdit && (
                                                             <button
                                                                 onClick={() => handleOpenEdit(rec)}
@@ -3676,6 +3754,184 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Clone Record (تكرار بيان) */}
+            {showCloneModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-lg shadow-md shadow-emerald-600/30">
+                                    <i className="fa-solid fa-copy"></i>
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-lg text-slate-800 dark:text-white">تكرار بيان</h3>
+                                    <p className="text-xs text-slate-400">نسخ بيانات سجل بنفس التفاصيل في <b className="text-emerald-500">{currentSheet.name}</b></p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowCloneModal(false)}
+                                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
+                            >
+                                <i className="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        {/* Search / Select Source Email */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                البريد الإلكتروني للمصدر (البيان المراد نسخه) <span className="text-rose-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <i className="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input
+                                    type="text"
+                                    value={cloneSourceEmail}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setCloneSourceEmail(val);
+                                        const trimmed = val.trim().toLowerCase();
+                                        if (!trimmed) {
+                                            setCloneTargetRecord(null);
+                                            return;
+                                        }
+                                        const exact = records.find(r => (r.email || '').toLowerCase() === trimmed);
+                                        const partial = records.find(r => (r.email || '').toLowerCase().includes(trimmed));
+                                        setCloneTargetRecord(exact || partial || null);
+                                    }}
+                                    placeholder="الصق أو اكتب الإيميل هنا..."
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dir-ltr text-right font-mono"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        {/* Quick Suggestions if matching multiple or if empty */}
+                        {!cloneTargetRecord && cloneSourceEmail.trim() && (
+                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                                <i className="fa-solid fa-circle-exclamation text-sm"></i>
+                                <span>لم يتم العثور على بيان بهذا البريد في شيت {currentSheet.name}. يرجى التحقق من صحة الإيميل.</span>
+                            </div>
+                        )}
+
+                        {/* Preview of Found Record Details */}
+                        {cloneTargetRecord && (
+                            <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-2 animate-fade-in">
+                                <div className="flex items-center justify-between border-b border-emerald-200/60 dark:border-emerald-800/40 pb-2 text-xs">
+                                    <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                        <i className="fa-solid fa-circle-check text-emerald-600"></i>
+                                        <span>تم العثور على البيان بنجاح</span>
+                                    </span>
+                                    <span className="font-mono text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
+                                        {cloneTargetRecord.email}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                                    <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                        <span className="text-slate-400 block text-[10px]">الباسورد:</span>
+                                        <span className="font-mono font-bold">{cloneTargetRecord.password || '-'}</span>
+                                    </div>
+                                    <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                        <span className="text-slate-400 block text-[10px]">الباسورد (2):</span>
+                                        <span className="font-mono font-bold">{cloneTargetRecord.password2 || '-'}</span>
+                                    </div>
+                                    <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                        <span className="text-slate-400 block text-[10px]">{currentSheetId === 'merchant_data' ? 'اسم التاجر:' : 'الخدمة:'}</span>
+                                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{cloneTargetRecord.serviceType || '-'}</span>
+                                    </div>
+                                    <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                        <span className="text-slate-400 block text-[10px]">مدة الاشتراك:</span>
+                                        <span className="font-bold">{cloneTargetRecord.duration || '-'}</span>
+                                    </div>
+                                    {cloneTargetRecord.deviceType && (
+                                        <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                            <span className="text-slate-400 block text-[10px]">نوع الاشتراك:</span>
+                                            <span className="font-bold">{cloneTargetRecord.deviceType}</span>
+                                        </div>
+                                    )}
+                                    {cloneTargetRecord.selectedAccount && (
+                                        <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg">
+                                            <span className="text-slate-400 block text-[10px]">بيانات الحساب:</span>
+                                            <span className="font-mono font-bold text-purple-600 dark:text-purple-400">{cloneTargetRecord.selectedAccount}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {cloneTargetRecord.notes && (
+                                    <div className="bg-white/70 dark:bg-slate-850 p-2 rounded-lg text-[11px]">
+                                        <span className="text-slate-400 block text-[10px]">ملاحظات:</span>
+                                        <span>{cloneTargetRecord.notes}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Destination Email (Optional) */}
+                        <div className="space-y-1.5">
+                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                البريد الإلكتروني الجديد (اختياري)
+                            </label>
+                            <div className="relative">
+                                <i className="fa-solid fa-envelope absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input
+                                    type="text"
+                                    value={cloneNewEmail}
+                                    onChange={(e) => setCloneNewEmail(e.target.value)}
+                                    placeholder="اتركه فارغاً لنسخ نفس الإيميل، أو اكتب إيميل جديد..."
+                                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-4 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 dir-ltr text-right font-mono"
+                                />
+                            </div>
+                            <p className="text-[10.5px] text-slate-400">
+                                إذا تركته فارغاً، سيتم إنشاء نسخة بنفس الإيميل الأصلي. وإذا كتبت إيميل جديد، سيتم نسخ كافة التفاصيل للإيميل الجديد.
+                            </p>
+                        </div>
+
+                        {/* Number of Clones */}
+                        <div className="flex items-center justify-between pt-1">
+                            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                عدد مرات التكرار:
+                            </label>
+                            <div className="flex items-center gap-2">
+                                {[1, 2, 3, 5].map(cnt => (
+                                    <button
+                                        key={cnt}
+                                        type="button"
+                                        onClick={() => setCloneCount(cnt)}
+                                        className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                                            cloneCount === cnt
+                                                ? 'bg-emerald-600 text-white shadow-xs'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {cnt}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                                type="button"
+                                onClick={() => setShowCloneModal(false)}
+                                className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition cursor-pointer"
+                            >
+                                إلغاء
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleExecuteClone}
+                                disabled={!cloneTargetRecord}
+                                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-lg shadow-emerald-600/30 transition transform active:scale-95 flex items-center gap-2 cursor-pointer"
+                            >
+                                <i className="fa-solid fa-copy"></i>
+                                <span>تكرار البيان الآن</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
