@@ -70,6 +70,13 @@ export const sanitizeRecord = (r, idx = 0) => {
         rawNotes = rawNotes ? `${rawNotes} | ${extras.join(' - ')}` : extras.join(' - ');
     }
 
+    // Sale status & shading (for account data)
+    let rawSaleStatus = r.saleStatus ?? (r.isSold === true ? 'sold' : r.isSold === false ? 'unsold' : (r['حالة البيع'] ?? null));
+    if (rawSaleStatus !== 'sold' && rawSaleStatus !== 'unsold') {
+        rawSaleStatus = null;
+    }
+    const rawIsSold = rawSaleStatus === 'sold' ? true : rawSaleStatus === 'unsold' ? false : (typeof r.isSold === 'boolean' ? r.isSold : null);
+
     return {
         id: String(r.id || `REC-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`),
         email: String(rawEmail).trim(),
@@ -90,6 +97,8 @@ export const sanitizeRecord = (r, idx = 0) => {
         deletedAt: r.deletedAt ? String(r.deletedAt) : '',
         originSheetId: r.originSheetId ? String(r.originSheetId) : '',
         originSheetName: r.originSheetName ? String(r.originSheetName) : '',
+        saleStatus: rawSaleStatus,
+        isSold: rawIsSold,
         created_at: r.created_at || new Date().toISOString(),
         updated_at: r.updated_at || new Date().toISOString()
     };
