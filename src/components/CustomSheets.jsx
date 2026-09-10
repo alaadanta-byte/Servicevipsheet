@@ -308,6 +308,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const [cloneTargetRecord, setCloneTargetRecord] = useState(null);
     const [cloneNewEmail, setCloneNewEmail] = useState('');
     const [cloneCount, setCloneCount] = useState(1);
+    const [isCredentialsCopied, setIsCredentialsCopied] = useState(false);
 
     // Notification toast
     const [toast, setToast] = useState(null);
@@ -620,6 +621,34 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setCopiedField(key);
         showToast('تم النسخ إلى الحافظة بنجاح ✓', 'success');
         setTimeout(() => setCopiedField(null), 1500);
+    };
+
+    // Helper to format credentials only: email | Password 1 | Password 2
+    const getCredentialsOnlyText = (data) => {
+        const em = (data?.email || '').trim();
+        const p1 = (data?.password || '').trim();
+        const p2 = (data?.password2 || '').trim();
+        if (p2) return `${em} | ${p1} | ${p2}`;
+        if (p1) return `${em} | ${p1}`;
+        return em;
+    };
+
+    // Copy credentials only (email | Password 1 | Password 2)
+    const handleCopyCredentialsOnly = () => {
+        const em = (formData.email || editingRecord?.email || '').trim();
+        const p1 = (formData.password || editingRecord?.password || '').trim();
+        const p2 = (formData.password2 || editingRecord?.password2 || '').trim();
+
+        if (!em && !p1 && !p2) {
+            showToast('لا توجد بيانات (بريد أو باسوورد) للنسخ', 'warning');
+            return;
+        }
+
+        const textToCopy = p2 ? `${em} | ${p1} | ${p2}` : (p1 ? `${em} | ${p1}` : em);
+        navigator.clipboard.writeText(textToCopy);
+        setIsCredentialsCopied(true);
+        showToast('تم نسخ (البريد | الباسوورد 1 | الباسوورد 2) فقط بنجاح ✓', 'success');
+        setTimeout(() => setIsCredentialsCopied(false), 2000);
     };
 
     // Toggle Secret Visibility
@@ -3166,8 +3195,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             {showAddModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full max-h-[90vh] sm:max-h-[88vh] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
-                        {/* Fixed Header with Title and Cancel/Close Button */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex-shrink-0">
+                        {/* Fixed Header with Title, Copy Credentials Button, and Cancel/Close Button */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex-shrink-0 gap-2">
                             <div className="flex items-center gap-3">
                                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${currentSheet.color} text-white flex items-center justify-center text-lg shadow-sm`}>
                                     <i className={`fa-solid ${editingRecord ? 'fa-pen-to-square' : 'fa-plus'}`}></i>
@@ -3181,15 +3210,35 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </p>
                                 </div>
                             </div>
-                            {/* Prominent Cancel / Close Button (علامة الإلغاء) */}
-                            <button
-                                type="button"
-                                onClick={() => setShowAddModal(false)}
-                                title="إلغاء وإغلاق النافذة"
-                                className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition border border-slate-200/60 dark:border-slate-700/60 hover:border-rose-300 dark:hover:border-rose-800/80 shadow-xs cursor-pointer group"
-                            >
-                                <i className="fa-solid fa-xmark text-base group-hover:scale-110 transition-transform"></i>
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                                {/* زر نسخ بيانات الاعتماد (email | Password 1 | Password 2) فقط */}
+                                {editingRecord && (formData.email || formData.password || formData.password2) && (
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyCredentialsOnly}
+                                        className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition border shadow-xs cursor-pointer ${
+                                            isCredentialsCopied
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/30'
+                                                : 'bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 hover:scale-[1.02]'
+                                        }`}
+                                        title="نسخ (البريد | الباسوورد 1 | الباسوورد 2) فقط"
+                                    >
+                                        <i className={`fa-solid ${isCredentialsCopied ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                        <span>{isCredentialsCopied ? 'تم النسخ ✓' : 'نسخ (Email | Pass 1 | Pass 2)'}</span>
+                                    </button>
+                                )}
+
+                                {/* Prominent Cancel / Close Button (علامة الإلغاء) */}
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(false)}
+                                    title="إلغاء وإغلاق النافذة"
+                                    className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition border border-slate-200/60 dark:border-slate-700/60 hover:border-rose-300 dark:hover:border-rose-800/80 shadow-xs cursor-pointer group"
+                                >
+                                    <i className="fa-solid fa-xmark text-base group-hover:scale-110 transition-transform"></i>
+                                </button>
+                            </div>
                         </div>
 
                         <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0">
@@ -3251,6 +3300,43 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 </div>
                             ) : (
                                 <>
+                            {/* بطاقة نسخ البيانات المحددة (Email | Password 1 | Password 2 فقط) */}
+                            {editingRecord && (formData.email || formData.password || formData.password2) && (
+                                <div className="p-3 rounded-2xl bg-gradient-to-r from-indigo-50/90 via-purple-50/60 to-slate-50/90 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-slate-800/40 border border-indigo-200/70 dark:border-indigo-800/60 flex items-center justify-between gap-3 shadow-xs">
+                                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-xs">
+                                            <i className="fa-solid fa-key"></i>
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[11px] font-black text-indigo-900 dark:text-indigo-200">
+                                                    نسخ بيانات الحساب فقط:
+                                                </span>
+                                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                                                    email | Password 1 | Password 2
+                                                </span>
+                                            </div>
+                                            <div className="font-mono text-xs text-slate-700 dark:text-slate-300 truncate dir-ltr text-right select-all mt-0.5 font-bold">
+                                                {getCredentialsOnlyText(formData)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyCredentialsOnly}
+                                        className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer flex-shrink-0 ${
+                                            isCredentialsCopied
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white'
+                                        }`}
+                                        title="نسخ (Email | Password 1 | Password 2) فقط"
+                                    >
+                                        <i className={`fa-solid ${isCredentialsCopied ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                        <span>{isCredentialsCopied ? 'تم النسخ ✓' : 'نسخ البيانات'}</span>
+                                    </button>
+                                </div>
+                            )}
+
                             {/* Email with Account Data Import Arrow & Dropdown (سهم لاستيراد بيانات الحساب + إمكانية الكتابة يدوي) */}
                             <div className="space-y-1.5" ref={accountEmailDropdownRef}>
                                 <div className="flex items-center justify-between">
@@ -4021,16 +4107,34 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                             </div>
 
-                            {/* Fixed Footer with Cancel and Submit buttons */}
+                            {/* Fixed Footer with Cancel, Copy Credentials and Submit buttons */}
                             <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/90 backdrop-blur-xs flex-shrink-0">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowAddModal(false)}
-                                    className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-                                >
-                                    <i className="fa-solid fa-xmark text-slate-400 text-xs"></i>
-                                    <span>إلغاء</span>
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddModal(false)}
+                                        className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <i className="fa-solid fa-xmark text-slate-400 text-xs"></i>
+                                        <span>إلغاء</span>
+                                    </button>
+
+                                    {editingRecord && (formData.email || formData.password || formData.password2) && (
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyCredentialsOnly}
+                                            className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                                isCredentialsCopied
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/30'
+                                                    : 'border-indigo-200 dark:border-indigo-800/80 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100'
+                                            }`}
+                                            title="نسخ (البريد | الباسوورد 1 | الباسوورد 2) فقط"
+                                        >
+                                            <i className={`fa-solid ${isCredentialsCopied ? 'fa-check' : 'fa-copy'} text-xs`}></i>
+                                            <span>{isCredentialsCopied ? 'تم نسخ البيانات ✓' : 'نسخ (Email | Pass 1 | Pass 2)'}</span>
+                                        </button>
+                                    )}
+                                </div>
                                 <button
                                     type="submit"
                                     className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 transition transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
