@@ -89,6 +89,18 @@ export const SERVICE_TYPE_OPTIONS = [
     }
 ];
 
+/**
+ * Normalizes account sale status to one of: 'available' (متاح), 'single' (جهاز), 'double' (جهازين), 'full' (شامل), or null
+ */
+export const getAccountSaleStatus = (record) => {
+    if (!record) return null;
+    const raw = record.saleStatus;
+    if (raw === 'full' || raw === 'شامل' || raw === 'sold' || record.isSold === true) return 'full';
+    if (raw === 'double' || raw === 'جهازين') return 'double';
+    if (raw === 'single' || raw === 'جهاز') return 'single';
+    if (raw === 'available' || raw === 'متاح' || raw === 'unsold' || record.isSold === false) return 'available';
+    return null;
+};
 
 /**
  * Calculates accurate remaining subscription duration from start date and duration string
@@ -743,7 +755,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             reminderDays: formData.reminderDays || '',
             reminderStatus: formData.reminderStatus || (editingRecord?.reminderStatus || 'active'),
             saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
-            isSold: formData.saleStatus === 'sold' ? true : formData.saleStatus === 'unsold' ? false : (editingRecord?.isSold ?? null)
+            isSold: (formData.saleStatus === 'full' || formData.saleStatus === 'sold') ? true : (formData.saleStatus === 'available' || formData.saleStatus === 'unsold') ? false : (editingRecord?.isSold ?? null)
         } : {
             name: '',
             phone: '',
@@ -841,7 +853,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             accountCreatedDate: rec.accountCreatedDate || '',
             reminderDays: rec.reminderDays || '',
             reminderStatus: rec.reminderStatus || 'active',
-            saleStatus: rec.saleStatus || (rec.isSold === true ? 'sold' : rec.isSold === false ? 'unsold' : '')
+            saleStatus: rec.saleStatus || (rec.isSold === true ? 'full' : rec.isSold === false ? 'available' : '')
         });
         setShowAddModal(true);
     };
@@ -1124,7 +1136,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         showToast(toastMsg, 'success');
     };
 
-    // Quick toggle sale status directly from table (تم البيع / لم يتم البيع / إلغاء التظليل)
+    // Quick toggle sale status directly from table (متاح / جهاز / جهازين / شامل / إلغاء التظليل)
     const handleToggleSaleStatus = (id) => {
         if (!canEdit) {
             showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
@@ -1134,24 +1146,33 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         let toastType = 'info';
         const updated = records.map(r => {
             if (r.id === id) {
+                const current = getAccountSaleStatus(r);
                 let nextStatus;
-                if (r.saleStatus === 'sold' || r.isSold === true) {
-                    nextStatus = 'unsold';
-                    toastMsg = 'تم التحديد: لم يتم البيع (تظليل أحمر) ✕';
+                if (!current) {
+                    nextStatus = 'available';
+                    toastMsg = 'تم التحديد: متاح (تظليل أحمر) 🔴';
                     toastType = 'info';
-                } else if (r.saleStatus === 'unsold' || r.isSold === false) {
+                } else if (current === 'available') {
+                    nextStatus = 'single';
+                    toastMsg = 'تم التحديد: جهاز (تظليل أزرق) 📱';
+                    toastType = 'info';
+                } else if (current === 'single') {
+                    nextStatus = 'double';
+                    toastMsg = 'تم التحديد: جهازين (تظليل بنفسجي) 📱📱';
+                    toastType = 'info';
+                } else if (current === 'double') {
+                    nextStatus = 'full';
+                    toastMsg = 'تم التحديد: شامل (تظليل أخضر) 🟢';
+                    toastType = 'success';
+                } else {
                     nextStatus = null;
                     toastMsg = 'تم إلغاء التظليل وعودة السجل للونه الطبيعي';
                     toastType = 'info';
-                } else {
-                    nextStatus = 'sold';
-                    toastMsg = 'تم التحديد: تم البيع (تظليل أخضر فاتح) ✓';
-                    toastType = 'success';
                 }
                 return {
                     ...r,
                     saleStatus: nextStatus,
-                    isSold: nextStatus === 'sold' ? true : nextStatus === 'unsold' ? false : null,
+                    isSold: nextStatus === 'full' ? true : nextStatus === 'available' ? false : null,
                     updated_at: new Date().toISOString()
                 };
             }
@@ -1161,7 +1182,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         showToast(toastMsg, toastType);
     };
 
-    // Set specific sale status directly from dropdown menu (تم البيع / لم يتم البيع / إلغاء التظليل)
+    // Set specific sale status directly from dropdown menu (متاح / جهاز / جهازين / شامل / إلغاء التظليل)
     const handleSetSaleStatus = (id, status) => {
         if (!canEdit) {
             showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
@@ -1172,17 +1193,21 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 return {
                     ...r,
                     saleStatus: status,
-                    isSold: status === 'sold' ? true : status === 'unsold' ? false : null,
+                    isSold: (status === 'full' || status === 'sold') ? true : (status === 'available' || status === 'unsold') ? false : null,
                     updated_at: new Date().toISOString()
                 };
             }
             return r;
         });
         saveRecords(updated);
-        if (status === 'sold') {
-            showToast('تم التحديد: تم البيع (تظليل أخضر فاتح) ✓', 'success');
-        } else if (status === 'unsold') {
-            showToast('تم التحديد: لم يتم البيع (تظليل أحمر فاتح) ✕', 'info');
+        if (status === 'available' || status === 'unsold') {
+            showToast('تم التحديد: متاح (تظليل أحمر) 🔴', 'info');
+        } else if (status === 'single') {
+            showToast('تم التحديد: جهاز (تظليل أزرق) 📱', 'info');
+        } else if (status === 'double') {
+            showToast('تم التحديد: جهازين (تظليل بنفسجي) 📱📱', 'info');
+        } else if (status === 'full' || status === 'sold') {
+            showToast('تم التحديد: شامل (تظليل أخضر) 🟢', 'success');
         } else {
             showToast('تم إلغاء التظليل وعودة السجل للوضع الطبيعي', 'info');
         }
@@ -2402,26 +2427,43 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isAccountSheet = currentSheetId === 'account_data';
                                     const isClientOrMerchantSheet = currentSheetId === 'client_data' || currentSheetId === 'merchant_data';
 
-                                    const isSold = isAccountSheet && (rec.saleStatus === 'sold' || rec.isSold === true);
-                                    const isUnsold = isAccountSheet && (rec.saleStatus === 'unsold' || rec.isSold === false);
+                                    const accStatus = isAccountSheet ? getAccountSaleStatus(rec) : null;
+                                    const isFull = isAccountSheet && accStatus === 'full';
+                                    const isDouble = isAccountSheet && accStatus === 'double';
+                                    const isSingle = isAccountSheet && accStatus === 'single';
+                                    const isAvailable = isAccountSheet && accStatus === 'available';
+
+                                    // Legacy compatibility aliases - guarantees no ReferenceError anywhere
+                                    const isSold = isFull;
+                                    const isUnsold = isAvailable;
 
                                     const isPaid = isClientOrMerchantSheet && (rec.paymentStatus === 'مدفوع' || (!rec.paymentStatus && currentSheetId !== 'trash_data'));
                                     const isUnpaid = isClientOrMerchantSheet && (rec.paymentStatus === 'غير مدفوع');
 
-                                    const isGreen = isSold || isPaid;
-                                    const isRed = isUnsold || isUnpaid;
+                                    const isGreen = isFull || isPaid;
+                                    const isPurple = isDouble;
+                                    const isBlue = isSingle;
+                                    const isRed = isAvailable || isUnpaid;
 
                                     const rowBgClass = isGreen
                                         ? 'bg-emerald-100/90 dark:bg-emerald-950/60 hover:bg-emerald-200/90 dark:hover:bg-emerald-900/70 border-b border-emerald-200/80 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-50'
-                                        : isRed
-                                            ? 'bg-rose-100/90 dark:bg-rose-950/60 hover:bg-rose-200/90 dark:hover:bg-rose-900/70 border-b border-rose-200/80 dark:border-rose-800/60 text-rose-950 dark:text-rose-50'
-                                            : 'hover:bg-indigo-50/30 dark:hover:bg-slate-800/50';
+                                        : isPurple
+                                            ? 'bg-purple-100/90 dark:bg-purple-950/60 hover:bg-purple-200/90 dark:hover:bg-purple-900/70 border-b border-purple-200/80 dark:border-purple-800/60 text-purple-950 dark:text-purple-50'
+                                            : isBlue
+                                                ? 'bg-blue-100/90 dark:bg-blue-950/60 hover:bg-blue-200/90 dark:hover:bg-blue-900/70 border-b border-blue-200/80 dark:border-blue-800/60 text-blue-950 dark:text-blue-50'
+                                                : isRed
+                                                    ? 'bg-rose-100/90 dark:bg-rose-950/60 hover:bg-rose-200/90 dark:hover:bg-rose-900/70 border-b border-rose-200/80 dark:border-rose-800/60 text-rose-950 dark:text-rose-50'
+                                                    : 'hover:bg-indigo-50/30 dark:hover:bg-slate-800/50';
 
                                     const stickyActionBgClass = isGreen
                                         ? 'bg-emerald-100/95 dark:bg-emerald-950/90 group-hover:bg-emerald-200 dark:group-hover:bg-emerald-900'
-                                        : isRed
-                                            ? 'bg-rose-100/95 dark:bg-rose-950/90 group-hover:bg-rose-200 dark:group-hover:bg-rose-900'
-                                            : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90';
+                                        : isPurple
+                                            ? 'bg-purple-100/95 dark:bg-purple-950/90 group-hover:bg-purple-200 dark:group-hover:bg-purple-900'
+                                            : isBlue
+                                                ? 'bg-blue-100/95 dark:bg-blue-950/90 group-hover:bg-blue-200 dark:group-hover:bg-blue-900'
+                                                : isRed
+                                                    ? 'bg-rose-100/95 dark:bg-rose-950/90 group-hover:bg-rose-200 dark:group-hover:bg-rose-900'
+                                                    : 'bg-white dark:bg-slate-900 group-hover:bg-slate-50 dark:group-hover:bg-slate-800/90';
 
                                     return (
                                         <tr
@@ -2830,11 +2872,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             return (
                                                                 <div className="flex items-center gap-1">
                                                                     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap font-mono ${
-                                                                        isSold
+                                                                        isFull
                                                                             ? 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700'
-                                                                            : isUnsold
-                                                                                ? 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-700'
-                                                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
+                                                                            : isDouble
+                                                                                ? 'bg-purple-200/80 dark:bg-purple-900/60 text-purple-900 dark:text-purple-200 border-purple-300 dark:border-purple-700'
+                                                                                : isSingle
+                                                                                    ? 'bg-blue-200/80 dark:bg-blue-900/60 text-blue-900 dark:text-blue-200 border-blue-300 dark:border-blue-700'
+                                                                                    : isAvailable
+                                                                                        ? 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-900 dark:text-rose-200 border-rose-300 dark:border-rose-700'
+                                                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
                                                                     }`}>
                                                                         <i className="fa-regular fa-calendar text-[8px] text-purple-500"></i>
                                                                         <span>{effectiveDate}</span>
@@ -3029,7 +3075,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
+                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isPurple ? 'border-purple-200/80 dark:border-purple-800/80' : isBlue ? 'border-blue-200/80 dark:border-blue-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -3058,8 +3104,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const modalWidth = 220;
-                                                                    const modalHeight = 220;
+                                                                    const modalWidth = 235;
+                                                                    const modalHeight = 310;
                                                                     const centerX = Math.max(10, Math.floor((window.innerWidth - modalWidth) / 2));
                                                                     const centerY = Math.max(10, Math.floor((window.innerHeight - modalHeight) / 2));
 
@@ -3071,25 +3117,41 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                         recordEmail: rec.email || rec.name || ''
                                                                     }));
                                                                 }}
-                                                                title="تحديد حالة البيع والتظليل (انقر لفتح الاختيارات)"
+                                                                title="تحديد حالة الحساب (متاح / جهاز / جهازين / شامل)"
                                                                 className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
-                                                                    isSold
+                                                                    isFull
                                                                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
-                                                                        : isUnsold
-                                                                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
-                                                                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
+                                                                        : isDouble
+                                                                            ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30'
+                                                                            : isSingle
+                                                                                ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/30'
+                                                                                : isAvailable
+                                                                                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                                                                                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-500 dark:text-slate-400 border border-slate-300/80 dark:border-slate-700'
                                                                 }`}
                                                             >
-                                                                {isSold ? (
+                                                                {isFull ? (
                                                                     <>
                                                                         <i className="fa-solid fa-check text-[7.5px]"></i>
-                                                                        <span>تم البيع</span>
+                                                                        <span>شامل</span>
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
-                                                                ) : isUnsold ? (
+                                                                ) : isDouble ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-tablets text-[7.5px]"></i>
+                                                                        <span>جهازين</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : isSingle ? (
+                                                                    <>
+                                                                        <i className="fa-solid fa-mobile-screen text-[7.5px]"></i>
+                                                                        <span>جهاز</span>
+                                                                        <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
+                                                                    </>
+                                                                ) : isAvailable ? (
                                                                     <>
                                                                         <i className="fa-solid fa-xmark text-[7.5px]"></i>
-                                                                        <span>لم يتم</span>
+                                                                        <span>متاح</span>
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 ) : (
@@ -3440,7 +3502,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                                                     return filtered.map(acc => {
                                                         const isCurrent = formData.email && acc.email && formData.email.toLowerCase() === acc.email.toLowerCase();
-                                                        const isSold = acc.saleStatus === 'sold' || acc.isSold === true;
+                                                        const accStatus = getAccountSaleStatus(acc);
+                                                        const isSold = accStatus === 'full';
                                                         return (
                                                             <button
                                                                 key={acc.id}
@@ -3466,11 +3529,23 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                         <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 truncate dir-ltr text-right block select-all">
                                                                             {acc.email}
                                                                         </span>
-                                                                        {isSold && (
-                                                                            <span className="px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
-                                                                                تم البيع
+                                                                        {accStatus === 'full' ? (
+                                                                            <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
+                                                                                شامل (أخضر)
                                                                             </span>
-                                                                        )}
+                                                                        ) : accStatus === 'double' ? (
+                                                                            <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-[9px] font-bold">
+                                                                                جهازين (بنفسجي)
+                                                                            </span>
+                                                                        ) : accStatus === 'single' ? (
+                                                                            <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-[9px] font-bold">
+                                                                                جهاز (أزرق)
+                                                                            </span>
+                                                                        ) : accStatus === 'available' ? (
+                                                                            <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[9px] font-bold">
+                                                                                متاح (أحمر)
+                                                                            </span>
+                                                                        ) : null}
                                                                     </div>
                                                                     <div className="flex items-center gap-3 text-[10.5px] text-slate-400 font-mono">
                                                                         {acc.password && (
@@ -4044,13 +4119,65 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             {currentSheetId === 'account_data' && (
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                                        حالة البيع والتظليل في الجدول
+                                        حالة الحساب والتظليل في الجدول
                                     </label>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'available' })}
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'available' || formData.saleStatus === 'unsold'
+                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
+                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-circle-xmark text-xs"></i>
+                                            <span>متاح (أحمر)</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'single' })}
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'single'
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
+                                                    : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-mobile-screen text-xs"></i>
+                                            <span>جهاز (أزرق)</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'double' })}
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'double'
+                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20'
+                                                    : 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 hover:bg-purple-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-tablets text-xs"></i>
+                                            <span>جهازين (بنفسجي)</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, saleStatus: 'full' })}
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatus === 'full' || formData.saleStatus === 'sold'
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                                                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-circle-check text-xs"></i>
+                                            <span>شامل (أخضر)</span>
+                                        </button>
+
                                         <button
                                             type="button"
                                             onClick={() => setFormData({ ...formData, saleStatus: '' })}
-                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
                                                 !formData.saleStatus
                                                     ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-800 dark:text-white shadow-xs'
                                                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
@@ -4058,32 +4185,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         >
                                             <i className="fa-solid fa-minus text-[10px]"></i>
                                             <span>بدون تظليل</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'sold' })}
-                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'sold'
-                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                                                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
-                                            }`}
-                                        >
-                                            <i className="fa-solid fa-circle-check text-xs"></i>
-                                            <span>تم البيع (أخضر)</span>
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'unsold' })}
-                                            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'unsold'
-                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
-                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
-                                            }`}
-                                        >
-                                            <i className="fa-solid fa-circle-xmark text-xs"></i>
-                                            <span>لم يتم (أحمر)</span>
                                         </button>
                                     </div>
                                 </div>
@@ -4621,83 +4722,146 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         )}
 
                         <div className="p-1.5 space-y-1.5">
-                            {/* خيار 1: تم البيع */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    handleSetSaleStatus(saleMenuAnchor.id, 'sold');
-                                    setSaleMenuAnchor(null);
-                                }}
-                                className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-emerald-50 dark:hover:bg-emerald-950/50 cursor-pointer ${
-                                    saleMenuAnchor.saleStatus === 'sold' || saleMenuAnchor.isSold === true
-                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/30'
-                                        : 'text-slate-700 dark:text-slate-200'
-                                }`}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <i className={`fa-solid fa-circle-check text-xs ${
-                                        saleMenuAnchor.saleStatus === 'sold' || saleMenuAnchor.isSold === true ? 'text-white' : 'text-emerald-500'
-                                    }`}></i>
-                                    <span>تم البيع</span>
-                                </span>
-                                <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
-                                    saleMenuAnchor.saleStatus === 'sold' || saleMenuAnchor.isSold === true
-                                        ? 'bg-white/25 text-white'
-                                        : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
-                                }`}>
-                                    أخضر فاتح
-                                </span>
-                            </button>
+                            {/* خيار 1: متاح (أحمر) */}
+                            {(() => {
+                                const currentAnchorStatus = getAccountSaleStatus(saleMenuAnchor);
+                                return (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, 'available');
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer ${
+                                                currentAnchorStatus === 'available'
+                                                    ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/30'
+                                                    : 'text-slate-700 dark:text-slate-200'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className={`fa-solid fa-circle-xmark text-xs ${
+                                                    currentAnchorStatus === 'available' ? 'text-white' : 'text-rose-500'
+                                                }`}></i>
+                                                <span>متاح</span>
+                                            </span>
+                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                                currentAnchorStatus === 'available'
+                                                    ? 'bg-white/25 text-white'
+                                                    : 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                                            }`}>
+                                                أحمر
+                                            </span>
+                                        </button>
 
-                            {/* خيار 2: لم يتم البيع */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    handleSetSaleStatus(saleMenuAnchor.id, 'unsold');
-                                    setSaleMenuAnchor(null);
-                                }}
-                                className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer ${
-                                    saleMenuAnchor.saleStatus === 'unsold' || saleMenuAnchor.isSold === false
-                                        ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/30'
-                                        : 'text-slate-700 dark:text-slate-200'
-                                }`}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <i className={`fa-solid fa-circle-xmark text-xs ${
-                                        saleMenuAnchor.saleStatus === 'unsold' || saleMenuAnchor.isSold === false ? 'text-white' : 'text-rose-500'
-                                    }`}></i>
-                                    <span>لم يتم البيع</span>
-                                </span>
-                                <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
-                                    saleMenuAnchor.saleStatus === 'unsold' || saleMenuAnchor.isSold === false
-                                        ? 'bg-white/25 text-white'
-                                        : 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
-                                }`}>
-                                    أحمر فاتح
-                                </span>
-                            </button>
+                                        {/* خيار 2: جهاز (أزرق) */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, 'single');
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer ${
+                                                currentAnchorStatus === 'single'
+                                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/30'
+                                                    : 'text-slate-700 dark:text-slate-200'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className={`fa-solid fa-mobile-screen text-xs ${
+                                                    currentAnchorStatus === 'single' ? 'text-white' : 'text-blue-500'
+                                                }`}></i>
+                                                <span>جهاز</span>
+                                            </span>
+                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                                currentAnchorStatus === 'single'
+                                                    ? 'bg-white/25 text-white'
+                                                    : 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200'
+                                            }`}>
+                                                أزرق
+                                            </span>
+                                        </button>
 
-                            {/* خيار 3: إلغاء التظليل */}
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    handleSetSaleStatus(saleMenuAnchor.id, null);
-                                    setSaleMenuAnchor(null);
-                                }}
-                                className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
-                                    !saleMenuAnchor.saleStatus && (saleMenuAnchor.isSold === null || saleMenuAnchor.isSold === undefined)
-                                        ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white'
-                                        : 'text-slate-600 dark:text-slate-400'
-                                }`}
-                            >
-                                <span className="flex items-center gap-2">
-                                    <i className="fa-solid fa-ban text-xs text-slate-400"></i>
-                                    <span>إلغاء التظليل</span>
-                                </span>
-                                <span className="text-[8.5px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
-                                    عادي
-                                </span>
-                            </button>
+                                        {/* خيار 3: جهازين (بنفسجي) */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, 'double');
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-purple-50 dark:hover:bg-purple-950/50 cursor-pointer ${
+                                                currentAnchorStatus === 'double'
+                                                    ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-600/30'
+                                                    : 'text-slate-700 dark:text-slate-200'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className={`fa-solid fa-tablets text-xs ${
+                                                    currentAnchorStatus === 'double' ? 'text-white' : 'text-purple-500'
+                                                }`}></i>
+                                                <span>جهازين</span>
+                                            </span>
+                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                                currentAnchorStatus === 'double'
+                                                    ? 'bg-white/25 text-white'
+                                                    : 'bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
+                                            }`}>
+                                                بنفسجي
+                                            </span>
+                                        </button>
+
+                                        {/* خيار 4: شامل (أخضر) */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, 'full');
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-emerald-50 dark:hover:bg-emerald-950/50 cursor-pointer ${
+                                                currentAnchorStatus === 'full'
+                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/30'
+                                                    : 'text-slate-700 dark:text-slate-200'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className={`fa-solid fa-circle-check text-xs ${
+                                                    currentAnchorStatus === 'full' ? 'text-white' : 'text-emerald-500'
+                                                }`}></i>
+                                                <span>شامل</span>
+                                            </span>
+                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                                currentAnchorStatus === 'full'
+                                                    ? 'bg-white/25 text-white'
+                                                    : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                                            }`}>
+                                                أخضر
+                                            </span>
+                                        </button>
+
+                                        {/* خيار 5: إلغاء التظليل */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, null);
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                                                !currentAnchorStatus
+                                                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white'
+                                                    : 'text-slate-600 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className="fa-solid fa-ban text-xs text-slate-400"></i>
+                                                <span>إلغاء التظليل</span>
+                                            </span>
+                                            <span className="text-[8.5px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                                عادي
+                                            </span>
+                                        </button>
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         {/* Draggable Footer Hint */}
