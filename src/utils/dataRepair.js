@@ -71,12 +71,20 @@ export const sanitizeRecord = (r, idx = 0) => {
         rawNotes = rawNotes ? `${rawNotes} | ${extras.join(' - ')}` : extras.join(' - ');
     }
 
-    // Sale status & shading (for account data)
-    let rawSaleStatus = r.saleStatus ?? (r.isSold === true ? 'sold' : r.isSold === false ? 'unsold' : (r['حالة البيع'] ?? null));
-    if (rawSaleStatus !== 'sold' && rawSaleStatus !== 'unsold') {
+    // Sale status & shading (for account data: full, double, single, available)
+    let rawSaleStatus = r.saleStatus ?? (r.isSold === true ? 'full' : r.isSold === false ? 'available' : (r['حالة البيع'] ?? null));
+    if (rawSaleStatus === 'full' || rawSaleStatus === 'شامل' || rawSaleStatus === 'sold' || r.isSold === true) {
+        rawSaleStatus = 'full';
+    } else if (rawSaleStatus === 'double' || rawSaleStatus === 'جهازين') {
+        rawSaleStatus = 'double';
+    } else if (rawSaleStatus === 'single' || rawSaleStatus === 'جهاز') {
+        rawSaleStatus = 'single';
+    } else if (rawSaleStatus === 'available' || rawSaleStatus === 'متاح' || rawSaleStatus === 'unsold' || r.isSold === false) {
+        rawSaleStatus = 'available';
+    } else {
         rawSaleStatus = null;
     }
-    const rawIsSold = rawSaleStatus === 'sold' ? true : rawSaleStatus === 'unsold' ? false : (typeof r.isSold === 'boolean' ? r.isSold : null);
+    const rawIsSold = rawSaleStatus === 'full' ? true : rawSaleStatus === 'available' ? false : (typeof r.isSold === 'boolean' ? r.isSold : null);
 
     // Reminder status: 'fulfilled' (استوفى باقي المدة) vs 'active'
     let rawReminderStatus = r.reminderStatus ?? r['حالة التذكير'] ?? (r.isReminderFulfilled ? 'fulfilled' : 'active');

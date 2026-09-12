@@ -3112,7 +3112,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     setSaleModalPos({ x: centerX, y: centerY });
                                                                     setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
                                                                         id: rec.id,
-                                                                        saleStatus: rec.saleStatus,
+                                                                        saleStatus: getAccountSaleStatus(rec),
                                                                         isSold: rec.isSold,
                                                                         recordEmail: rec.email || rec.name || ''
                                                                     }));
@@ -4733,22 +4733,22 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'available');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer ${
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
                                                 currentAnchorStatus === 'available'
-                                                    ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-sm shadow-rose-600/30'
-                                                    : 'text-slate-700 dark:text-slate-200'
+                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/30 ring-2 ring-rose-500/50'
+                                                    : 'bg-rose-50/60 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 border-rose-200/70 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 hover:border-rose-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className={`fa-solid fa-circle-xmark text-xs ${
+                                                <i className={`fa-solid fa-circle-xmark text-sm ${
                                                     currentAnchorStatus === 'available' ? 'text-white' : 'text-rose-500'
                                                 }`}></i>
-                                                <span>متاح</span>
+                                                <span className="text-xs font-black">متاح</span>
                                             </span>
-                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
                                                 currentAnchorStatus === 'available'
                                                     ? 'bg-white/25 text-white'
-                                                    : 'bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
+                                                    : 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
                                             }`}>
                                                 أحمر
                                             </span>
@@ -4761,22 +4761,22 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'single');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer ${
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
                                                 currentAnchorStatus === 'single'
-                                                    ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/30'
-                                                    : 'text-slate-700 dark:text-slate-200'
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/30 ring-2 ring-blue-500/50'
+                                                    : 'bg-blue-50/60 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 border-blue-200/70 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:border-blue-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className={`fa-solid fa-mobile-screen text-xs ${
+                                                <i className={`fa-solid fa-mobile-screen text-sm ${
                                                     currentAnchorStatus === 'single' ? 'text-white' : 'text-blue-500'
                                                 }`}></i>
-                                                <span>جهاز</span>
+                                                <span className="text-xs font-black">جهاز</span>
                                             </span>
-                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
                                                 currentAnchorStatus === 'single'
                                                     ? 'bg-white/25 text-white'
-                                                    : 'bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200'
+                                                    : 'bg-blue-200/80 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200'
                                             }`}>
                                                 أزرق
                                             </span>
@@ -4789,22 +4789,22 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'double');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-purple-50 dark:hover:bg-purple-950/50 cursor-pointer ${
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
                                                 currentAnchorStatus === 'double'
-                                                    ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-600/30'
-                                                    : 'text-slate-700 dark:text-slate-200'
+                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/30 ring-2 ring-purple-500/50'
+                                                    : 'bg-purple-50/60 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200 border-purple-200/70 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 hover:border-purple-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className={`fa-solid fa-tablets text-xs ${
+                                                <i className={`fa-solid fa-tablets text-sm ${
                                                     currentAnchorStatus === 'double' ? 'text-white' : 'text-purple-500'
                                                 }`}></i>
-                                                <span>جهازين</span>
+                                                <span className="text-xs font-black">جهازين</span>
                                             </span>
-                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
                                                 currentAnchorStatus === 'double'
                                                     ? 'bg-white/25 text-white'
-                                                    : 'bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
+                                                    : 'bg-purple-200/80 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
                                             }`}>
                                                 بنفسجي
                                             </span>
@@ -4817,22 +4817,22 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'full');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-emerald-50 dark:hover:bg-emerald-950/50 cursor-pointer ${
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
                                                 currentAnchorStatus === 'full'
-                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/30'
-                                                    : 'text-slate-700 dark:text-slate-200'
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-500/50'
+                                                    : 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 border-emerald-200/70 dark:border-emerald-900/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className={`fa-solid fa-circle-check text-xs ${
+                                                <i className={`fa-solid fa-circle-check text-sm ${
                                                     currentAnchorStatus === 'full' ? 'text-white' : 'text-emerald-500'
                                                 }`}></i>
-                                                <span>شامل</span>
+                                                <span className="text-xs font-black">شامل</span>
                                             </span>
-                                            <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold ${
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
                                                 currentAnchorStatus === 'full'
                                                     ? 'bg-white/25 text-white'
-                                                    : 'bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
+                                                    : 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
                                             }`}>
                                                 أخضر
                                             </span>
@@ -4845,17 +4845,17 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, null);
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-2.5 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer ${
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
                                                 !currentAnchorStatus
-                                                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white'
-                                                    : 'text-slate-600 dark:text-slate-400'
+                                                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 shadow-xs'
+                                                    : 'bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className="fa-solid fa-ban text-xs text-slate-400"></i>
-                                                <span>إلغاء التظليل</span>
+                                                <i className="fa-solid fa-ban text-sm text-slate-400"></i>
+                                                <span className="text-xs font-bold">إلغاء التظليل</span>
                                             </span>
-                                            <span className="text-[8.5px] px-1.5 py-0.5 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
                                                 عادي
                                             </span>
                                         </button>
