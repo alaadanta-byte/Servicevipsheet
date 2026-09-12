@@ -329,6 +329,18 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setTimeout(() => setToast(null), 3500);
     };
 
+    // Lock body scroll whenever any modal is open to guarantee 100% fixed viewport centering without scroll movement
+    useEffect(() => {
+        const isAnyModalOpen = Boolean(showAddModal || showBulkModal || showCloneModal || showRenameModal || showRepairModal);
+        if (isAnyModalOpen) {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }
+    }, [showAddModal, showBulkModal, showCloneModal, showRenameModal, showRepairModal]);
+
     // File input ref for import
     const fileInputRef = useRef(null);
 

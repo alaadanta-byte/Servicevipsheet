@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useData } from '../context/DataContext';
 import { customersAPI, salesAPI } from '../services/api';
 import { useConfirm } from './ConfirmDialog';
@@ -22,6 +23,17 @@ export default function Clients() {
         setSales(ctxSales);
         setCustomers(ctxCustomers);
     }, [ctxSales, ctxCustomers]);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (selectedClient || editingClient) {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }
+    }, [selectedClient, editingClient]);
 
     const copyToClipboard = (text) => {
         if (!text) return;
@@ -397,8 +409,12 @@ export default function Clients() {
             )}
 
             {/* ============ CLIENT DETAILS MODAL ============ */}
-            {selectedClient && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setSelectedClient(null)}>
+            {selectedClient && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setSelectedClient(null)}
+                >
                     <div className="bg-white rounded-3xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
 
                         {/* Header */}
@@ -527,12 +543,17 @@ export default function Clients() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ============ EDIT CLIENT MODAL ============ */}
-            {editingClient && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in" onClick={() => setEditingClient(null)}>
+            {editingClient && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setEditingClient(null)}
+                >
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex justify-between items-center">
                             <h3 className="text-xl font-bold flex items-center gap-2">
@@ -577,7 +598,8 @@ export default function Clients() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <style>{`

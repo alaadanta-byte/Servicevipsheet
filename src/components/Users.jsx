@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { usersAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from './ConfirmDialog';
@@ -56,6 +57,17 @@ export default function Users () {
     const [formRole, setFormRole] = useState('moderator');
     const [selectedPermissions, setSelectedPermissions] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+        if (showModal) {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }
+    }, [showModal]);
 
     const isAdmin = authUser?.role === 'admin';
 
@@ -558,10 +570,14 @@ export default function Users () {
             {/* ==========================================
                 Modal: Add / Edit User & Permissions
                ========================================== */}
-            {showModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            {showModal && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-4"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
+                    onClick={() => setShowModal(false)}
+                >
                     <div
-                        className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-scale-in"
+                        className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl max-h-[90vh] shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden animate-scale-in"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Modal Header */}
@@ -813,7 +829,8 @@ export default function Users () {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
         </div>

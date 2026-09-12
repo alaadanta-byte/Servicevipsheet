@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 // ========= Context for app-wide confirm/alert =========
 const ConfirmContext = createContext();
@@ -6,6 +7,17 @@ const ConfirmContext = createContext();
 export function ConfirmProvider({ children }) {
     const [dialog, setDialog] = useState(null);
     const resolveRef = useRef(null);
+
+    // Lock body scroll when confirm dialog is open
+    useEffect(() => {
+        if (dialog) {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }
+    }, [dialog]);
 
     const showConfirm = useCallback(({ title, message, confirmText, cancelText, type }) => {
         return new Promise((resolve) => {
@@ -49,8 +61,12 @@ export function ConfirmProvider({ children }) {
     return (
         <ConfirmContext.Provider value={{ showConfirm, showAlert }}>
             {children}
-            {dialog && (
-                <div className="fixed inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 animate-confirm-fade-in" onClick={handleCancel}>
+            {dialog && createPortal(
+                <div
+                    className="fixed inset-0 bg-black/60 dark:bg-black/75 backdrop-blur-sm flex items-center justify-center z-[9999999] p-4 animate-confirm-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}
+                    onClick={handleCancel}
+                >
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-sm sm:max-w-md shadow-2xl overflow-hidden animate-confirm-scale-in p-6 sm:p-7" onClick={e => e.stopPropagation()}>
                         {/* Icon + Title */}
                         <div className="text-center">
@@ -80,7 +96,8 @@ export function ConfirmProvider({ children }) {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             <style>{`
                 .animate-confirm-fade-in { animation: confirmFadeIn 0.2s ease-out forwards; }

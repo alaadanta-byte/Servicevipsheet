@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { accountsAPI, sectionsAPI, quickLinksAPI } from '../services/api';
@@ -25,6 +26,18 @@ export default function Accounts() {
     const [showLinkModal, setShowLinkModal] = useState(false);
     const [linksExpanded, setLinksExpanded] = useState(true);
     const { showConfirm, showAlert } = useConfirm();
+
+    // Lock body scroll when any modal is open
+    useEffect(() => {
+        const isAnyOpen = Boolean(showAddModal || showSectionModal || editingAccount || pulledResult || showLinkModal);
+        if (isAnyOpen) {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }
+    }, [showAddModal, showSectionModal, editingAccount, pulledResult, showLinkModal]);
 
     useEffect(() => { window.scrollTo(0, 0); }, []);
 
@@ -689,9 +702,13 @@ export default function Accounts() {
             )}
 
             {/* ===== CREATE SECTION MODAL ===== */}
-            {showSectionModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            {showSectionModal && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setShowSectionModal(false)}
+                >
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="p-6 bg-gradient-to-r from-purple-700 to-indigo-600 text-white flex justify-between items-center">
                             <h3 className="text-xl font-bold flex items-center gap-2"><i className="fa-solid fa-folder-plus"></i> إنشاء سجل جديد</h3>
                             <button onClick={() => setShowSectionModal(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><i className="fa-solid fa-xmark text-lg"></i></button>
@@ -726,13 +743,18 @@ export default function Accounts() {
                             </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ===== ADD ITEM MODAL ===== */}
-            {showAddModal && currentSection && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {showAddModal && currentSection && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setShowAddModal(false)}
+                >
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className={`p-6 text-white flex justify-between items-center ${isCodesSection ? 'bg-gradient-to-r from-amber-600 to-orange-500' : 'bg-gradient-to-r from-purple-700 to-indigo-600'}`}>
                             <h3 className="text-xl font-bold flex items-center gap-2">
                                 <i className={`fa-solid ${isCodesSection ? 'fa-key' : 'fa-plus-circle'}`}></i> إضافة {isCodesSection ? 'أكواد' : 'حسابات'} - {currentSection.name}
@@ -748,82 +770,77 @@ export default function Accounts() {
                             {isBulkAdd ? (
                                 <div>
                                     <label className="block text-sm font-extrabold text-slate-800 mb-2">{isCodesSection ? 'الأكواد (كل كود في سطر)' : 'الحسابات (كل عنصر في سطر)'}</label>
-                                    <textarea name="bulkData" rows="6" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-mono dir-ltr text-left resize-none" placeholder={isCodesSection ? 'XXXX-YYYY-ZZZZ\nAAAA-BBBB-CCCC' : 'email@domain.com | password | 2fa_code\nemail2@domain.com | pass2 | 2fa_code2'} required></textarea>
-                                    {!isCodesSection && (
-                                        <div className="mt-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
-                                            <p className="text-[11px] text-indigo-700 font-bold mb-1"><i className="fa-solid fa-info-circle ml-1"></i> الفورمات المدعومة:</p>
-                                            <ul className="text-[10px] text-indigo-600 font-mono space-y-0.5 list-disc list-inside">
-                                                <li>email | password | 2fa_code</li>
-                                                <li>email:password:2fa_code</li>
-                                                <li>email | password</li>
-                                                <li>email:password</li>
-                                            </ul>
-                                            <p className="text-[10px] text-indigo-500 mt-1.5 font-medium">كود الـ 2FA هيتحول تلقائياً للينك: <span className="font-bold">servicehub-mail.cloud/2fa-code/</span></p>
-                                        </div>
-                                    )}
+                                    <p className="text-[11px] text-slate-400 mb-2 font-medium">{isCodesSection ? 'الصق الأكواد هنا، كل كود في سطر جديد' : 'الصيغة: email:password أو email:password:2FA'}</p>
+                                    <textarea name="bulkData" rows={6} className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-mono text-xs focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all dir-ltr text-left" placeholder={isCodesSection ? "CODE-1234-5678\nCODE-9999-0000" : "user1@mail.com:Pass123\nuser2@mail.com:Pass456:2FA_SECRET"} required />
                                 </div>
                             ) : (
                                 <>
                                     <div>
                                         <label className="block text-sm font-extrabold text-slate-800 mb-2">{isCodesSection ? 'الكود' : 'الإيميل أو البيانات'}</label>
-                                        <input name="email" type="text" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-mono dir-ltr text-left" placeholder={isCodesSection ? 'XXXX-XXXX-XXXX' : 'user@example.com'} required />
+                                        <input name="email" type="text" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-mono dir-ltr text-left" placeholder={isCodesSection ? "XXXX-XXXX-XXXX" : "user@example.com"} required />
                                     </div>
                                     {!isCodesSection && (
                                         <>
                                             <div>
-                                                <label className="block text-sm font-extrabold text-slate-800 mb-2">الباسورد <span className="text-slate-400 font-medium">(اختياري)</span></label>
-                                                <input name="password" type="text" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-mono dir-ltr text-left" placeholder="password123" />
+                                                <label className="block text-sm font-extrabold text-slate-800 mb-2">الباسورد</label>
+                                                <input name="password" type="text" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all font-mono dir-ltr text-left" placeholder="••••••••" />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-extrabold text-slate-800 mb-2">2FA Link <span className="text-slate-400 font-medium">(اختياري)</span></label>
-                                                <input name="twoFA" type="text" className="w-full bg-white border-2 border-purple-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all font-mono dir-ltr text-left text-purple-700" placeholder="otpauth://totp/..." />
+                                                <label className="block text-sm font-extrabold text-slate-800 mb-2">رابط الـ 2FA (اختياري)</label>
+                                                <input name="twoFA" type="text" className="w-full bg-white border-2 border-purple-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-purple-100 focus:border-purple-600 outline-none transition-all font-mono dir-ltr text-left text-purple-700" placeholder="https://2fa.live/... أو الـ Secret Key" />
                                             </div>
                                         </>
                                     )}
                                 </>
                             )}
 
-                            <div>
-                                <label className="block text-sm font-extrabold text-slate-800 mb-2">الحد الأقصى للاستخدام</label>
-                                <div className="grid grid-cols-4 gap-2 mb-2">
-                                    {[{ l: 'مرة واحدة', v: 1 }, { l: '3 مرات', v: 3 }, { l: '5 مرات', v: 5 }, { l: 'غير محدود', v: -1 }].map(d => (
-                                        <button key={d.v} type="button" onClick={(e) => { e.target.closest('form').querySelector('[name=allowedUses]').value = d.v; }} className="py-2 px-1 rounded-xl border-2 border-slate-200 text-xs font-bold text-slate-600 hover:border-indigo-400 hover:bg-indigo-50 transition-all">{d.l}</button>
-                                    ))}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-extrabold text-slate-800 mb-2">الحالة</label>
+                                    <select name="status" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all">
+                                        <option value="available">متاح للبيع</option>
+                                        <option value="used">مستخدم</option>
+                                    </select>
                                 </div>
-                                <input name="allowedUses" type="number" defaultValue="1" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all" min="-1" />
+                                <div>
+                                    <label className="block text-sm font-extrabold text-slate-800 mb-2">الحد الأقصى للاستخدام</label>
+                                    <input name="allowedUses" type="number" defaultValue="1" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3.5 font-bold text-sm focus:ring-4 focus:ring-indigo-100 focus:border-indigo-600 outline-none transition-all" min="-1" />
+                                    <p className="text-[10px] text-slate-400 mt-1 font-medium">-1 = استخدام غير محدود</p>
+                                </div>
                             </div>
 
                             {/* Workspace Options */}
                             <div className="bg-cyan-50/50 p-5 rounded-2xl border border-cyan-200 space-y-4">
                                 <div className="text-xs font-black text-cyan-600 uppercase tracking-widest flex items-center gap-1.5">
-                                    <i className="fa-solid fa-users-rectangle"></i> إعدادات Workspace (اختياري)
+                                    <i className="fa-solid fa-users-rectangle"></i> إعدادات Workspace
                                 </div>
                                 <label className="flex items-center gap-3 p-3 bg-white rounded-xl border border-cyan-100 cursor-pointer hover:bg-cyan-50 transition-colors">
                                     <input type="checkbox" name="isWorkspace" className="w-5 h-5 text-cyan-600 rounded focus:ring-cyan-500 border-cyan-300" />
-                                    <span className="text-sm font-bold text-cyan-800">هذا الحساب Workspace (مجموعة عمل)</span>
+                                    <span className="text-sm font-bold text-cyan-800">هذا الحساب Workspace</span>
                                 </label>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-1">عدد الأشخاص المطلوب للاكتمال</label>
+                                    <label className="block text-xs font-bold text-slate-600 mb-1">عدد الأشخاص المطلوب (افتراضي 5)</label>
                                     <input name="workspaceMembers" type="number" defaultValue="5" min="1" className="w-full bg-white border-2 border-slate-200 rounded-xl p-3 font-bold text-sm focus:ring-4 focus:ring-cyan-100 focus:border-cyan-500 outline-none transition-all" />
                                 </div>
-                                <p className="text-[10px] text-cyan-600 font-medium">
-                                    <i className="fa-solid fa-info-circle ml-1"></i>
-                                    الحساب ميتعلمش "مكتمل" غير لما العدد المضاف يوصل للحد ده
-                                </p>
                             </div>
 
-                            <button type="submit" className={`w-full text-white py-3.5 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 ${isCodesSection ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}>
-                                <i className="fa-solid fa-check"></i> حفظ
+                            <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2">
+                                <i className="fa-solid fa-plus"></i> إضافة الآن
                             </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ===== EDIT MODAL ===== */}
-            {editingAccount && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {editingAccount && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setEditingAccount(null)}
+                >
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
                         <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center">
                             <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-2"><i className="fa-solid fa-pen-to-square text-blue-600"></i> تعديل</h3>
                             <button onClick={() => setEditingAccount(null)} className="bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition text-slate-400"><i className="fa-solid fa-xmark text-lg"></i></button>
@@ -881,12 +898,17 @@ export default function Accounts() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ===== PULLED RESULT MODAL ===== */}
-            {pulledResult && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4 animate-fade-in" onClick={() => setPulledResult(null)}>
+            {pulledResult && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setPulledResult(null)}
+                >
                     <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                         {pulledResult.empty ? (
                             <>
@@ -902,68 +924,45 @@ export default function Accounts() {
                         ) : (
                             <>
                                 <div className="p-6 bg-gradient-to-r from-emerald-600 to-teal-500 text-white text-center">
-                                    <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3"><i className="fa-solid fa-bolt text-3xl"></i></div>
-                                    <h3 className="text-xl font-bold">تم السحب بنجاح!</h3>
-                                    <p className="text-emerald-100 text-sm mt-1">تم نسخ البيانات تلقائياً • {pulledResult.sectionName}</p>
+                                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-2 text-2xl">
+                                        <i className="fa-solid fa-check"></i>
+                                    </div>
+                                    <h3 className="text-xl font-bold">تم سحب {pulledResult.type === 'codes' ? 'الكود' : 'الحساب'} بنجاح!</h3>
                                 </div>
-                                <div className="p-8 space-y-4">
-                                    <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
-                                        <span className="text-sm font-bold text-slate-500">الحالة</span>
-                                        <span className={`text-sm font-extrabold px-3 py-1 rounded-full ${pulledResult.status === 'completed' ? 'bg-slate-100 text-slate-500' : 'bg-orange-50 text-orange-600 border border-orange-200'}`}>
-                                            {pulledResult.status === 'completed' ? '✅ مكتمل' : `📊 ${pulledResult.current_uses} / ${pulledResult.allowed_uses === -1 ? '∞' : pulledResult.allowed_uses}`}
-                                        </span>
-                                    </div>
-                                    {pulledResult.is_workspace && (
-                                        <div className="bg-cyan-50 p-3 rounded-xl border border-cyan-200 flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-users-rectangle text-cyan-600"></i>
-                                                <span className="text-sm font-bold text-cyan-700">Workspace</span>
-                                            </div>
-                                            <div className="text-left">
-                                                <span className="text-sm font-extrabold text-cyan-800">{pulledResult.current_uses} / {pulledResult.workspace_members || pulledResult.allowed_uses}</span>
-                                                <span className="text-xs text-cyan-500 block">متبقي {(pulledResult.workspace_members || pulledResult.allowed_uses) - pulledResult.current_uses} شخص</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-black text-slate-500 uppercase tracking-wide">البيانات</label>
-                                        <div className="flex items-center">
-                                            <code className="text-sm font-mono font-bold text-slate-800 bg-slate-50 px-4 py-3 rounded-r-xl border border-r-0 border-slate-200 flex-1 truncate select-all dir-ltr text-left">{pulledResult.email}</code>
-                                            <button onClick={() => copyToClipboard(pulledResult.email, 'pulled-email')} className="h-[46px] w-[50px] flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 rounded-l-xl transition">
-                                                <i className={`fa-solid ${copiedId === 'pulled-email' ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {pulledResult.password && (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-black text-slate-500 uppercase tracking-wide">الباسورد</label>
-                                            <div className="flex items-center">
-                                                <code className="text-sm font-mono font-bold text-slate-800 bg-slate-50 px-4 py-3 rounded-r-xl border border-r-0 border-slate-200 flex-1 truncate select-all dir-ltr text-left">{pulledResult.password}</code>
-                                                <button onClick={() => copyToClipboard(pulledResult.password, 'pulled-pass')} className="h-[46px] w-[50px] flex items-center justify-center bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 rounded-l-xl transition">
-                                                    <i className={`fa-solid ${copiedId === 'pulled-pass' ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
+                                <div className="p-6 space-y-4">
+                                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                                        <div>
+                                            <span className="text-[11px] font-bold text-slate-400 block mb-1">{pulledResult.type === 'codes' ? 'الكود:' : 'الإيميل:'}</span>
+                                            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                                                <span className="font-mono font-bold text-sm text-slate-800 select-all">{pulledResult.item.email}</span>
+                                                <button onClick={() => copyItem(pulledResult.item.email, 'pull_email')} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1">
+                                                    <i className={`fa-solid ${copiedId === 'pull_email' ? 'fa-check text-green-600' : 'fa-copy'}`}></i>
+                                                    {copiedId === 'pull_email' ? 'تم' : 'نسخ'}
                                                 </button>
                                             </div>
                                         </div>
-                                    )}
-                                    {(pulledResult.twoFA || pulledResult.two_fa) && (
-                                        <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-black text-purple-500 uppercase tracking-wide">2FA Link</label>
-                                            <div className="flex items-center">
-                                                <code className="text-sm font-mono font-bold text-purple-700 bg-purple-50 px-4 py-3 rounded-r-xl border border-r-0 border-purple-200 flex-1 truncate select-all dir-ltr text-left">{pulledResult.twoFA || pulledResult.two_fa}</code>
-                                                <button onClick={() => copyToClipboard(pulledResult.twoFA || pulledResult.two_fa, 'pulled-2fa')} className="h-[46px] w-[50px] flex items-center justify-center bg-purple-50 text-purple-600 hover:bg-purple-100 border border-purple-100 rounded-l-xl transition">
-                                                    <i className={`fa-solid ${copiedId === 'pulled-2fa' ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
-                                                </button>
+                                        {pulledResult.item.password && (
+                                            <div>
+                                                <span className="text-[11px] font-bold text-slate-400 block mb-1">الباسورد:</span>
+                                                <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                                                    <span className="font-mono font-bold text-sm text-slate-800 select-all">{pulledResult.item.password}</span>
+                                                    <button onClick={() => copyItem(pulledResult.item.password, 'pull_pass')} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1">
+                                                        <i className={`fa-solid ${copiedId === 'pull_pass' ? 'fa-check text-green-600' : 'fa-copy'}`}></i>
+                                                        {copiedId === 'pull_pass' ? 'تم' : 'نسخ'}
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <a href={pulledResult.twoFA || pulledResult.two_fa} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-500 font-bold flex items-center gap-1 hover:text-purple-700 transition">
-                                                <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> فتح رابط الـ 2FA
-                                            </a>
-                                        </div>
-                                    )}
-                                    <button onClick={() => { let t = pulledResult.email; if (pulledResult.password) t += `\n${pulledResult.password}`; if (pulledResult.twoFA || pulledResult.two_fa) t += `\n${pulledResult.twoFA || pulledResult.two_fa}`; copyToClipboard(t, 'pulled-all'); }}
-                                        className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 border-2 ${copiedId === 'pulled-all' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'}`}>
-                                        <i className={`fa-solid ${copiedId === 'pulled-all' ? 'fa-check' : 'fa-clipboard'}`}></i>
-                                        {copiedId === 'pulled-all' ? 'تم النسخ ✓' : 'نسخ كل البيانات'}
-                                    </button>
+                                        )}
+                                        {pulledResult.item.twoFA && (
+                                            <div>
+                                                <span className="text-[11px] font-bold text-slate-400 block mb-1">رابط الـ 2FA:</span>
+                                                <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-purple-200">
+                                                    <span className="font-mono font-bold text-xs text-purple-700 truncate select-all">{pulledResult.item.twoFA}</span>
+                                                    <a href={pulledResult.item.twoFA} target="_blank" rel="noreferrer" className="text-purple-600 hover:text-purple-800 text-xs font-bold shrink-0 ml-2">فتح</a>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex gap-3 pt-2">
                                         <button onClick={() => setPulledResult(null)} className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-white border-2 border-slate-200 hover:bg-slate-50 transition">إغلاق</button>
                                         <button onClick={() => { const name = pulledResult.sectionName; setPulledResult(null); handlePullNext(name); }} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2">
@@ -974,13 +973,18 @@ export default function Accounts() {
                             </>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* ===== ADD LINK MODAL ===== */}
-            {showLinkModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999] p-4 animate-fade-in">
-                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in">
+            {showLinkModal && createPortal(
+                <div
+                    className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[999999] p-4 animate-fade-in"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+                    onClick={() => setShowLinkModal(false)}
+                >
+                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
                         <div className="p-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white flex justify-between items-center">
                             <h3 className="text-xl font-bold flex items-center gap-2"><i className="fa-solid fa-link"></i> إضافة رابط سريع</h3>
                             <button onClick={() => setShowLinkModal(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"><i className="fa-solid fa-xmark text-lg"></i></button>
@@ -999,7 +1003,8 @@ export default function Accounts() {
                             </button>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <style>{`
