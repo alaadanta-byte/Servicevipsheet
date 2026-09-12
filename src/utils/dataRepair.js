@@ -776,31 +776,44 @@ export const calculateAccountAutoStatus = (accountEmail, clientRecords = [], mer
     const cleanEmail = (accountEmail || '').trim().toLowerCase();
     if (!cleanEmail) return 'available';
 
-    const matches = [...(clientRecords || []), ...(merchantRecords || [])].filter(r => {
+    // 1. Any account registered in merchant_data is automatically 'full' (شامل)
+    const merchantMatches = (merchantRecords || []).filter(r => {
         if (!r) return false;
         const sAcc = (r.selectedAccount || '').trim().toLowerCase();
         const sEmail = (r.email || '').trim().toLowerCase();
         return sAcc === cleanEmail || sEmail === cleanEmail || sAcc.startsWith(cleanEmail + ' ') || sAcc.startsWith(cleanEmail + '|');
     });
 
-    if (matches.length === 0) {
+    if (merchantMatches.length > 0) {
+        return 'full';
+    }
+
+    // 2. Client records matching logic
+    const clientMatches = (clientRecords || []).filter(r => {
+        if (!r) return false;
+        const sAcc = (r.selectedAccount || '').trim().toLowerCase();
+        const sEmail = (r.email || '').trim().toLowerCase();
+        return sAcc === cleanEmail || sEmail === cleanEmail || sAcc.startsWith(cleanEmail + ' ') || sAcc.startsWith(cleanEmail + '|');
+    });
+
+    if (clientMatches.length === 0) {
         return 'available';
     }
 
-    const hasFullOr2Dev = matches.some(m => {
+    const hasFullOr2Dev = clientMatches.some(m => {
         const dt = (m.deviceType || '').trim();
         return dt === 'جهازين' || dt === 'شامل' || dt === 'كامل' || dt === 'Private';
     });
 
-    const singleMatches = matches.filter(m => {
+    const singleMatches = clientMatches.filter(m => {
         const dt = (m.deviceType || '').trim();
         return dt === 'جهاز' || dt === 'جهاز واحد' || dt === '1' || !dt;
     });
 
-    if (hasFullOr2Dev || matches.length >= 3) {
+    if (hasFullOr2Dev || clientMatches.length >= 3) {
         return 'full';
     }
-    if (singleMatches.length >= 2 || matches.length >= 2) {
+    if (singleMatches.length >= 2 || clientMatches.length >= 2) {
         return 'double';
     }
     return 'single';
