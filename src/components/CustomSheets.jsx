@@ -314,9 +314,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
     const [saleMenuAnchor, setSaleMenuAnchor] = useState(null); // { id, saleStatus, isSold, recordEmail }
-    const [saleModalPos, setSaleModalPos] = useState({ x: 0, y: 0 });
-    const [isDraggingSaleModal, setIsDraggingSaleModal] = useState(false);
-    const saleDragOffsetRef = useRef({ offsetX: 0, offsetY: 0 });
     const [showCloneModal, setShowCloneModal] = useState(false);
     const [cloneSourceEmail, setCloneSourceEmail] = useState('');
     const [cloneTargetRecord, setCloneTargetRecord] = useState(null);
@@ -479,78 +476,14 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isDurationDropdownOpen, isServiceDropdownOpen, isAccountEmailDropdownOpen]);
 
-    // Drag start for sale status modal
-    const handleSaleDragStart = (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        saleDragOffsetRef.current = {
-            offsetX: clientX - saleModalPos.x,
-            offsetY: clientY - saleModalPos.y
-        };
-        setIsDraggingSaleModal(true);
-    };
-
-    // Listeners for dragging sale status modal with mouse / touch
-    useEffect(() => {
-        if (!isDraggingSaleModal) return;
-
-        const handleMouseMove = (e) => {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-            const modalWidth = 220;
-            const modalHeight = 220;
-            const newX = Math.max(8, Math.min(window.innerWidth - modalWidth - 8, clientX - saleDragOffsetRef.current.offsetX));
-            const newY = Math.max(8, Math.min(window.innerHeight - modalHeight - 8, clientY - saleDragOffsetRef.current.offsetY));
-
-            setSaleModalPos({ x: newX, y: newY });
-        };
-
-        const handleMouseUp = () => {
-            setIsDraggingSaleModal(false);
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-        window.addEventListener('touchmove', handleMouseMove, { passive: true });
-        window.addEventListener('touchend', handleMouseUp);
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-            window.removeEventListener('touchmove', handleMouseMove);
-            window.removeEventListener('touchend', handleMouseUp);
-        };
-    }, [isDraggingSaleModal]);
-
-    // Keyboard navigation & movement for sale status modal
+    // Close sale status modal on Escape key
     useEffect(() => {
         if (!saleMenuAnchor) return;
-
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 setSaleMenuAnchor(null);
-                return;
-            }
-
-            const step = e.shiftKey ? 40 : 20;
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSaleModalPos(pos => ({ ...pos, y: Math.max(8, pos.y - step) }));
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSaleModalPos(pos => ({ ...pos, y: Math.min(window.innerHeight - 220, pos.y + step) }));
-            } else if (e.key === 'ArrowLeft') {
-                e.preventDefault();
-                setSaleModalPos(pos => ({ ...pos, x: Math.max(8, pos.x - step) }));
-            } else if (e.key === 'ArrowRight') {
-                e.preventDefault();
-                setSaleModalPos(pos => ({ ...pos, x: Math.min(window.innerWidth - 220, pos.x + step) }));
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [saleMenuAnchor]);
@@ -3224,12 +3157,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const modalWidth = 235;
-                                                                    const modalHeight = 310;
-                                                                    const centerX = Math.max(10, Math.floor((window.innerWidth - modalWidth) / 2));
-                                                                    const centerY = Math.max(10, Math.floor((window.innerHeight - modalHeight) / 2));
-
-                                                                    setSaleModalPos({ x: centerX, y: centerY });
                                                                     setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
                                                                         id: rec.id,
                                                                         saleStatus: getAccountSaleStatus(rec),
@@ -4788,50 +4715,30 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 </div>
             )}
 
-            {/* Sale Status Floating Menu (Centered & Draggable Modal - Only for account_data) */}
+            {/* Sale Status Modal (Fixed in Center of Screen - Only for account_data) */}
             {saleMenuAnchor && currentSheetId === 'account_data' && (
                 <div
-                    className="fixed inset-0 z-[99999] bg-black/20 backdrop-blur-[0.5px]"
-                    onClick={() => {
-                        if (!isDraggingSaleModal) setSaleMenuAnchor(null);
-                    }}
+                    className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/40 backdrop-blur-[1px] p-4"
+                    onClick={() => setSaleMenuAnchor(null)}
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        style={{
-                            position: 'fixed',
-                            top: `${saleModalPos.y}px`,
-                            left: `${saleModalPos.x}px`,
-                            width: '225px'
-                        }}
-                        className={`bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1 z-[99999] text-right divide-y divide-slate-100 dark:divide-slate-800 ring-1 ring-black/10 select-none transition-shadow ${
-                            isDraggingSaleModal ? 'shadow-indigo-500/30 ring-2 ring-indigo-500/50 scale-[1.02]' : ''
-                        }`}
+                        className="w-[245px] max-w-[92vw] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 py-1 text-right divide-y divide-slate-100 dark:divide-slate-800 ring-1 ring-black/10 select-none animate-in fade-in zoom-in-95 duration-150"
                     >
-                        {/* Draggable Header */}
-                        <div
-                            onMouseDown={handleSaleDragStart}
-                            onTouchStart={handleSaleDragStart}
-                            className="px-3 py-2 text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-50/90 dark:bg-slate-800/80 rounded-t-2xl flex items-center justify-between cursor-grab active:cursor-grabbing select-none border-b border-slate-100 dark:border-slate-800"
-                            title="اضغط واسحب بالماوس أو مفاتيح الأسهم للتحريك في أي مكان"
-                        >
-                            <div className="flex items-center gap-1.5 pointer-events-none">
-                                <i className="fa-solid fa-arrows-up-down-left-right text-indigo-500 text-[11px]"></i>
-                                <span className="text-[11px]">حالة البيع والتظليل</span>
+                        {/* Header */}
+                        <div className="px-3.5 py-2.5 text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-50/90 dark:bg-slate-800/80 rounded-t-2xl flex items-center justify-between select-none border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-1.5">
+                                <i className="fa-solid fa-palette text-indigo-500 text-xs"></i>
+                                <span className="text-xs">حالة البيع والتظليل</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                                <span className="text-[8.5px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-200/60 dark:bg-slate-700/60 px-1.5 py-0.5 rounded pointer-events-none">
-                                    اسحب بالسهم
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => setSaleMenuAnchor(null)}
-                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition cursor-pointer"
-                                    title="إغلاق"
-                                >
-                                    <i className="fa-solid fa-xmark text-[11px]"></i>
-                                </button>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setSaleMenuAnchor(null)}
+                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition cursor-pointer"
+                                title="إغلاق"
+                            >
+                                <i className="fa-solid fa-xmark text-sm"></i>
+                            </button>
                         </div>
 
                         {/* Email display if present */}
@@ -5002,17 +4909,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </>
                                 );
                             })()}
-                        </div>
-
-                        {/* Draggable Footer Hint */}
-                        <div
-                            onMouseDown={handleSaleDragStart}
-                            onTouchStart={handleSaleDragStart}
-                            className="px-3 py-1.5 text-[9px] text-slate-400 dark:text-slate-500 text-center bg-slate-50/50 dark:bg-slate-800/40 rounded-b-2xl cursor-grab active:cursor-grabbing select-none flex items-center justify-center gap-1.5"
-                            title="اسحب بالسهم لتحريك النافذة في أي مكان"
-                        >
-                            <i className="fa-regular fa-hand-pointer text-[9px] text-indigo-400"></i>
-                            <span>اسحب بالسهم أو استخدم مفاتيح الأسهم ↕↔</span>
                         </div>
                     </div>
                 </div>
