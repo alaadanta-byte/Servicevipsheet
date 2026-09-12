@@ -10,7 +10,9 @@ import {
     scanAndRepairAllSheets,
     buildRealisticSampleData,
     resetAllSheets,
-    calculateAccountReminder
+    calculateAccountReminder,
+    calculateAccountAutoStatus,
+    autoSyncAccountsStatus
 } from '../utils/dataRepair';
 
 // Calendar Icon with dynamic number or placeholder matching the user design
@@ -562,6 +564,47 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setExpiryFilter('all');
     }, [currentSheetId]);
 
+    // Background auto-sync of account_data statuses when client_data or merchant_data is updated
+    const syncAccountsFromClientData = async (changedSheetId, changedRecords) => {
+        try {
+            const accKey = `${STORAGE_PREFIX}account_data`;
+            let accList = [];
+            const rawAcc = localStorage.getItem(accKey);
+            if (rawAcc) {
+                try { accList = JSON.parse(rawAcc); } catch {}
+            }
+            if (!Array.isArray(accList) || accList.length === 0) {
+                accList = await sheetsAPI.getSheetRecords('account_data');
+            }
+            if (!Array.isArray(accList) || accList.length === 0) return;
+
+            let clientRecs = changedSheetId === 'client_data' ? changedRecords : [];
+            let merchantRecs = changedSheetId === 'merchant_data' ? changedRecords : [];
+
+            if (changedSheetId !== 'client_data') {
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+            }
+            if (changedSheetId !== 'merchant_data') {
+                try {
+                    const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                    if (mRaw) merchantRecs = JSON.parse(mRaw);
+                } catch {}
+            }
+
+            const { updated, updatedCount } = autoSyncAccountsStatus(accList, clientRecs, merchantRecs);
+            if (updatedCount > 0) {
+                localStorage.setItem(accKey, JSON.stringify(updated));
+                sheetsAPI.saveSheetRecords('account_data', updated);
+                refreshAvailableAccounts();
+            }
+        } catch (err) {
+            console.warn('Error auto-syncing account_data statuses:', err);
+        }
+    };
+
     // Save records to LocalStorage & Supabase cloud
     const saveRecords = (newRecords) => {
         try {
@@ -571,6 +614,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             refreshAllCounts();
             if (currentSheetId === 'account_data') {
                 refreshAvailableAccounts();
+            } else if (currentSheetId === 'client_data' || currentSheetId === 'merchant_data') {
+                syncAccountsFromClientData(currentSheetId, sanitized);
             }
         } catch (e) {
             console.error('Error saving data:', e);
@@ -1182,35 +1227,97 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         showToast(toastMsg, toastType);
     };
 
-    // Set specific sale status directly from dropdown menu (متاح / جهاز / جهازين / شامل / إلغاء التظليل)
-    const handleSetSaleStatus = (id, status) => {
+    // Set specific sale status directly from dropdown menu (متاح / جهاز / جهازين / شامل / إلغاء التظليل / تلقائي)
+    const handleSetSaleStatus = async (id, status) => {
         if (!canEdit) {
             showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
             return;
         }
+
+        let targetStatus = status;
+        if (status === 'auto') {
+            const targetRec = records.find(r => r.id === id);
+            const accEmail = targetRec?.email || targetRec?.name || '';
+            let clientRecs = [];
+            let merchantRecs = [];
+            try {
+                const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                if (cRaw) clientRecs = JSON.parse(cRaw);
+            } catch {}
+            try {
+                const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                if (mRaw) merchantRecs = JSON.parse(mRaw);
+            } catch {}
+            if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+                try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
+            }
+            if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
+                try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+            }
+            targetStatus = calculateAccountAutoStatus(accEmail, clientRecs, merchantRecs);
+        }
+
         const updated = records.map(r => {
             if (r.id === id) {
                 return {
                     ...r,
-                    saleStatus: status,
-                    isSold: (status === 'full' || status === 'sold') ? true : (status === 'available' || status === 'unsold') ? false : null,
+                    saleStatus: targetStatus,
+                    isSold: (targetStatus === 'full' || targetStatus === 'sold') ? true : (targetStatus === 'available' || targetStatus === 'unsold') ? false : null,
                     updated_at: new Date().toISOString()
                 };
             }
             return r;
         });
         saveRecords(updated);
-        if (status === 'available' || status === 'unsold') {
+
+        if (status === 'auto') {
+            const labelMap = {
+                available: 'متاح (غير مسجل بالعملاء/التجار) 🔴',
+                single: 'جهاز واحد (مسجل جهاز واحد فقط) 🔵',
+                double: 'جهازين (مسجل مرتين جهاز واحد) 🟣',
+                full: 'شامل / كامل (مسجل جهازين أو كامل) 🟢'
+            };
+            showToast(`تم التحديد تلقائياً: ${labelMap[targetStatus] || targetStatus}`, 'success');
+        } else if (targetStatus === 'available' || targetStatus === 'unsold') {
             showToast('تم التحديد: متاح (تظليل أحمر) 🔴', 'info');
-        } else if (status === 'single') {
+        } else if (targetStatus === 'single') {
             showToast('تم التحديد: جهاز (تظليل أزرق) 📱', 'info');
-        } else if (status === 'double') {
+        } else if (targetStatus === 'double') {
             showToast('تم التحديد: جهازين (تظليل بنفسجي) 📱📱', 'info');
-        } else if (status === 'full' || status === 'sold') {
+        } else if (targetStatus === 'full' || targetStatus === 'sold') {
             showToast('تم التحديد: شامل (تظليل أخضر) 🟢', 'success');
         } else {
             showToast('تم إلغاء التظليل وعودة السجل للوضع الطبيعي', 'info');
         }
+    };
+
+    // Recalculate and update all accounts in account_data based on client_data & merchant_data
+    const handleAutoSyncAllAccounts = async () => {
+        if (!canEdit) {
+            showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
+            return;
+        }
+        let clientRecs = [];
+        let merchantRecs = [];
+        try {
+            const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+            if (cRaw) clientRecs = JSON.parse(cRaw);
+        } catch {}
+        try {
+            const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+            if (mRaw) merchantRecs = JSON.parse(mRaw);
+        } catch {}
+
+        if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+            try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
+        }
+        if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
+            try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+        }
+
+        const { updated, updatedCount } = autoSyncAccountsStatus(records, clientRecs, merchantRecs);
+        saveRecords(updated);
+        showToast(`تم التحديد التلقائي بنجاح لجميع الحسابات (${records.length} حساب) ✓`, 'success');
     };
 
     // Delete Selected Records (Bulk soft-delete or permanent delete)
@@ -2079,6 +2186,19 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     <span>إضافة بيانات جديدة</span>
                                 </button>
                             )
+                        )}
+
+                        {/* Auto Sync All Accounts Status (Only in account_data) */}
+                        {currentSheetId === 'account_data' && canEdit && (
+                            <button
+                                type="button"
+                                onClick={handleAutoSyncAllAccounts}
+                                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition transform active:scale-95 cursor-pointer"
+                                title="تحديد تلقائي لحالة جميع الحسابات بناءً على ما هو مسجل في بيانات العميل وبيانات التاجر"
+                            >
+                                <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 dark:text-indigo-400"></i>
+                                <span>تحديد تلقائي للحالة</span>
+                            </button>
                         )}
                     </div>
                 </div>
@@ -4722,11 +4842,31 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         )}
 
                         <div className="p-1.5 space-y-1.5">
-                            {/* خيار 1: متاح (أحمر) */}
                             {(() => {
                                 const currentAnchorStatus = getAccountSaleStatus(saleMenuAnchor);
                                 return (
                                     <>
+                                        {/* خيار ذكي: تحديد تلقائي حسب العملاء والتجار */}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                handleSetSaleStatus(saleMenuAnchor.id, 'auto');
+                                                setSaleMenuAnchor(null);
+                                            }}
+                                            className="w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 text-indigo-900 dark:text-indigo-200 border-indigo-200/80 dark:border-indigo-800/60 hover:border-indigo-400 hover:shadow-xs mb-1"
+                                            title="فحص تلقائي لشيت العملاء وشيت التجار وتحديد الحالة آلياً"
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <i className="fa-solid fa-wand-magic-sparkles text-sm text-indigo-600 dark:text-indigo-400 animate-pulse"></i>
+                                                <span className="text-xs font-black">تحديد تلقائي ذكي</span>
+                                            </span>
+                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200">
+                                                حسب الشيتات ⚡
+                                            </span>
+                                        </button>
+                                        <div className="border-b border-slate-200/80 dark:border-slate-800 my-1"></div>
+
+                                        {/* خيار 1: متاح (أحمر) */}
                                         <button
                                             type="button"
                                             onClick={() => {

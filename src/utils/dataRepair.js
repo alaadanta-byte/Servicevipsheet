@@ -764,3 +764,68 @@ export const resetAllSheets = (sheets = DEFAULT_SHEETS) => {
         localStorage.setItem(`${STORAGE_PREFIX}${sheet.id}`, JSON.stringify([]));
     });
 };
+
+/**
+ * Automatically calculates the sale status for an account based on registrations in client_data and merchant_data:
+ * - 0 registrations -> 'available' (متاح - أحمر)
+ * - 1 registration with 1 device -> 'single' (جهاز - أزرق)
+ * - 2 registrations with 1 device each -> 'double' (جهازين - بنفسجي)
+ * - 1 registration with 2 devices (or 'شامل' / 'كامل' / 'Private' / total >= 2) -> 'full' (شامل / كامل - أخضر)
+ */
+export const calculateAccountAutoStatus = (accountEmail, clientRecords = [], merchantRecords = []) => {
+    const cleanEmail = (accountEmail || '').trim().toLowerCase();
+    if (!cleanEmail) return 'available';
+
+    const matches = [...(clientRecords || []), ...(merchantRecords || [])].filter(r => {
+        if (!r) return false;
+        const sAcc = (r.selectedAccount || '').trim().toLowerCase();
+        const sEmail = (r.email || '').trim().toLowerCase();
+        return sAcc === cleanEmail || sEmail === cleanEmail || sAcc.startsWith(cleanEmail + ' ') || sAcc.startsWith(cleanEmail + '|');
+    });
+
+    if (matches.length === 0) {
+        return 'available';
+    }
+
+    const hasFullOr2Dev = matches.some(m => {
+        const dt = (m.deviceType || '').trim();
+        return dt === 'جهازين' || dt === 'شامل' || dt === 'كامل' || dt === 'Private';
+    });
+
+    const singleMatches = matches.filter(m => {
+        const dt = (m.deviceType || '').trim();
+        return dt === 'جهاز' || dt === 'جهاز واحد' || dt === '1' || !dt;
+    });
+
+    if (hasFullOr2Dev || matches.length >= 3) {
+        return 'full';
+    }
+    if (singleMatches.length >= 2 || matches.length >= 2) {
+        return 'double';
+    }
+    return 'single';
+};
+
+/**
+ * Synchronize status for a list of accounts based on client and merchant records.
+ * Leaves all other account fields untouched.
+ */
+export const autoSyncAccountsStatus = (accountRecords = [], clientRecords = [], merchantRecords = []) => {
+    let updatedCount = 0;
+    const updated = (accountRecords || []).map(acc => {
+        const email = acc.email || acc.name || '';
+        const autoStatus = calculateAccountAutoStatus(email, clientRecords, merchantRecords);
+        if (acc.saleStatus !== autoStatus) {
+            updatedCount++;
+            return {
+                ...acc,
+                saleStatus: autoStatus,
+                isSold: autoStatus === 'full' ? true : autoStatus === 'available' ? false : null,
+                updated_at: new Date().toISOString()
+            };
+        }
+        return acc;
+    });
+    return { updated, updatedCount };
+};
+
