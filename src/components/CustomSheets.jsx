@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { useConfirm } from './ConfirmDialog';
@@ -314,9 +315,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
     const [saleMenuAnchor, setSaleMenuAnchor] = useState(null); // { id, saleStatus, isSold, recordEmail }
-    const [saleModalPos, setSaleModalPos] = useState(null); // null = centered in screen
-    const [isDraggingSaleModal, setIsDraggingSaleModal] = useState(false);
-    const saleDragOffsetRef = useRef({ offsetX: 0, offsetY: 0 });
     const [showCloneModal, setShowCloneModal] = useState(false);
     const [cloneSourceEmail, setCloneSourceEmail] = useState('');
     const [cloneTargetRecord, setCloneTargetRecord] = useState(null);
@@ -478,54 +476,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isDurationDropdownOpen, isServiceDropdownOpen, isAccountEmailDropdownOpen]);
-
-    // Drag start for sale status floating card
-    const handleSaleDragStart = (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        const cardEl = e.currentTarget.closest('.sale-modal-card');
-        const rect = cardEl ? cardEl.getBoundingClientRect() : { left: (window.innerWidth - 245) / 2, top: (window.innerHeight - 320) / 2 };
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-        saleDragOffsetRef.current = {
-            offsetX: clientX - rect.left,
-            offsetY: clientY - rect.top
-        };
-        setIsDraggingSaleModal(true);
-    };
-
-    // Listeners for dragging sale status floating card with mouse / touch
-    useEffect(() => {
-        if (!isDraggingSaleModal) return;
-
-        const handleMouseMove = (e) => {
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-            const modalWidth = 245;
-            const modalHeight = 320;
-            const newX = Math.max(8, Math.min(window.innerWidth - modalWidth - 8, clientX - saleDragOffsetRef.current.offsetX));
-            const newY = Math.max(8, Math.min(window.innerHeight - modalHeight - 8, clientY - saleDragOffsetRef.current.offsetY));
-
-            setSaleModalPos({ x: newX, y: newY });
-        };
-
-        const handleMouseUp = () => {
-            setIsDraggingSaleModal(false);
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-        window.addEventListener('touchmove', handleMouseMove, { passive: true });
-        window.addEventListener('touchend', handleMouseUp);
-
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-            window.removeEventListener('touchmove', handleMouseMove);
-            window.removeEventListener('touchend', handleMouseUp);
-        };
-    }, [isDraggingSaleModal]);
 
     // Close sale status modal on Escape key
     useEffect(() => {
@@ -3208,7 +3158,6 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setSaleModalPos(null);
                                                                     setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
                                                                         id: rec.id,
                                                                         saleStatus: getAccountSaleStatus(rec),
@@ -4767,29 +4716,21 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 </div>
             )}
 
-            {/* Sale Status Floating Card (Lightweight, No Black Backdrop, Fixed in Viewport Center & Draggable) */}
-            {saleMenuAnchor && currentSheetId === 'account_data' && (
+            {/* Sale Status Floating Card (Portal directly to body: 100% Fixed in Viewport Center, Never Moves on Scroll) */}
+            {saleMenuAnchor && currentSheetId === 'account_data' && createPortal(
                 <div
-                    className={`fixed inset-0 z-[9999] pointer-events-none p-4 ${
-                        saleModalPos ? '' : 'flex items-center justify-center'
-                    }`}
+                    className="fixed inset-0 z-[999999] pointer-events-none flex items-center justify-center p-4"
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}
                 >
                     <div
                         onClick={(e) => e.stopPropagation()}
-                        style={saleModalPos ? { position: 'fixed', left: `${saleModalPos.x}px`, top: `${saleModalPos.y}px` } : {}}
-                        className={`sale-modal-card pointer-events-auto w-[245px] max-w-[92vw] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-700/90 py-1 text-right divide-y divide-slate-100 dark:divide-slate-800 ring-1 ring-black/10 select-none animate-in fade-in zoom-in-95 duration-150 ${
-                            isDraggingSaleModal ? 'ring-2 ring-indigo-500 shadow-indigo-500/30' : ''
-                        }`}
+                        className="pointer-events-auto w-[250px] max-w-[92vw] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-200/90 dark:border-slate-700/90 py-1 text-right divide-y divide-slate-100 dark:divide-slate-800 ring-1 ring-black/10 select-none animate-in fade-in zoom-in-95 duration-150"
+                        style={{ pointerEvents: 'auto' }}
                     >
-                        {/* Header with drag handle */}
-                        <div
-                            onMouseDown={handleSaleDragStart}
-                            onTouchStart={handleSaleDragStart}
-                            className="px-3.5 py-2 text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-50/90 dark:bg-slate-800/80 rounded-t-2xl flex items-center justify-between select-none border-b border-slate-100 dark:border-slate-800 cursor-grab active:cursor-grabbing"
-                            title="اضغط واسحب بالماوس لتحريك النافذة"
-                        >
-                            <div className="flex items-center gap-1.5 pointer-events-none">
-                                <i className="fa-solid fa-arrows-up-down-left-right text-indigo-500 text-xs"></i>
+                        {/* Header */}
+                        <div className="px-3.5 py-2.5 text-xs font-black text-slate-700 dark:text-slate-200 bg-slate-50/90 dark:bg-slate-800/80 rounded-t-2xl flex items-center justify-between select-none border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-1.5">
+                                <i className="fa-solid fa-palette text-indigo-500 text-xs"></i>
                                 <span className="text-xs">حالة البيع والتظليل</span>
                             </div>
                             <button
@@ -4972,7 +4913,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             })()}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
