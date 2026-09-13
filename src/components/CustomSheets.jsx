@@ -147,14 +147,14 @@ export const calculateRemainingTime = (rawStartDate, rawDuration, rawCreatedAt) 
         end.setFullYear(end.getFullYear() + num);
     } else if (duration.includes('شهر') || duration.includes('شهور') || duration.toLowerCase().includes('month')) {
         const num = parseInt(duration) || 1;
-        end.setMonth(end.getMonth() + num);
+        end.setDate(end.getDate() + (num * 30));
     } else if (duration.includes('يوم') || duration.toLowerCase().includes('day')) {
         const num = parseInt(duration) || 30;
         end.setDate(end.getDate() + num);
     } else {
         const num = parseInt(duration);
         if (!isNaN(num) && num > 0) {
-            end.setMonth(end.getMonth() + num);
+            end.setDate(end.getDate() + (num * 30));
         } else {
             return { text: '-', status: 'none', days: null };
         }
