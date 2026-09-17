@@ -2072,7 +2072,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <div>
                             <div className="flex flex-wrap items-center gap-3">
                                 <h2 className="text-lg md:text-xl font-black text-slate-800 dark:text-white">
-                                    {currentSheet.name}
+                                    {isClientGroup ? 'بيانات العميل' : currentSheet.name}
                                 </h2>
 
                                 {isClientGroup && (
