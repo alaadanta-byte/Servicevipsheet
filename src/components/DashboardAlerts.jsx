@@ -611,8 +611,8 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
                                             )}
                                         </div>
 
-                                        {/* Linked Account info if available (hidden for client and merchant data) */}
-                                        {item.selectedAccount && item.sheetId !== 'client_data' && item.sheetId !== 'merchant_data' && (
+                                        {/* Linked Account info if available (hidden for client, adobe unregistered and merchant data) */}
+                                        {item.selectedAccount && item.sheetId !== 'client_data' && item.sheetId !== 'adobe_unregistered' && item.sheetId !== 'merchant_data' && (
                                             <div className="flex items-center justify-between text-[11px] bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60 rounded-lg px-2.5 py-1 text-purple-800 dark:text-purple-300">
                                                 <div className="flex items-center gap-1.5 font-bold truncate">
                                                     <i className="fa-solid fa-shield-halved text-purple-600 dark:text-purple-400 text-[10px]"></i>

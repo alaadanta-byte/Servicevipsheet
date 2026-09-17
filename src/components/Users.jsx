@@ -15,7 +15,8 @@ export const PERMISSIONS_SECTIONS = [
         permissions: [
             { id: 'dashboard', label: 'الرئيسية', icon: 'fa-house', desc: 'عرض الصفحة الرئيسية ولوحة الإحصائيات' },
             { id: 'alerts', label: 'التنبيهات', icon: 'fa-bell', desc: 'عرض مركز تنبيهات الاشتراكات والتجديد' },
-            { id: 'sheet_client_data', label: 'شيت بيانات العميل', icon: 'fa-user-tie', desc: 'الوصول إلى جدول ومواعيد عملاء الخدمة' },
+            { id: 'sheet_client_data', label: 'شيت ادوبي مسجل', icon: 'fa-user-tie', desc: 'الوصول إلى جدول ومواعيد عملاء ادوبي المسجلين' },
+            { id: 'sheet_adobe_unregistered', label: 'شيت ادوبي غير مسجل', icon: 'fa-user-clock', desc: 'الوصول إلى جدول ومواعيد عملاء ادوبي غير المسجلين' },
             { id: 'sheet_merchant_data', label: 'شيت بيانات التاجر', icon: 'fa-store', desc: 'الوصول إلى جدول حسابات وتجار الخدمة' },
             { id: 'sheet_account_data', label: 'شيت بيانات الحساب', icon: 'fa-shield-halved', desc: 'الوصول إلى شيت بيانات الحسابات والمخزون' },
             { id: 'sheet_customers_data', label: 'شيت داتا العملاء', icon: 'fa-address-book', desc: 'الوصول إلى شيت داتا العملاء (الاسم، الهاتف، نوع الاشتراك)' },
@@ -116,7 +117,7 @@ export default function Users () {
         setFormPassword('');
         setFormRole('moderator');
         // الصلاحيات الافتراضية للمشرف (الوصول للشيتات الأساسية والإضافة والتعديل)
-        setSelectedPermissions(['dashboard', 'sheet_client_data', 'sheet_merchant_data', 'sheet_account_data', 'sheet_customers_data', 'add_row', 'edit_row']);
+        setSelectedPermissions(['dashboard', 'sheet_client_data', 'sheet_adobe_unregistered', 'sheet_merchant_data', 'sheet_account_data', 'sheet_customers_data', 'add_row', 'edit_row']);
         setShowModal(true);
     };
 

@@ -4,6 +4,7 @@ export const STORAGE_PREFIX = 'sv_custom_sheet_';
 
 export const DEFAULT_SHEETS = [
     { id: 'client_data', name: 'بيانات العميل', icon: 'fa-user-tie', color: 'from-blue-600 to-indigo-600', badgeColor: 'bg-blue-500' },
+    { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' },
     { id: 'merchant_data', name: 'بيانات التاجر', icon: 'fa-store', color: 'from-emerald-600 to-teal-600', badgeColor: 'bg-emerald-500' },
     { id: 'account_data', name: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'from-purple-600 to-indigo-600', badgeColor: 'bg-purple-500' },
     { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' },

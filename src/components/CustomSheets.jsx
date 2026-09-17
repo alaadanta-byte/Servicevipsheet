@@ -268,6 +268,24 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             badgeColor: 'bg-rose-500'
                         } : s);
                     }
+                    // Ensure client_data is named 'بيانات العميل'
+                    const clientEntry = updated.find(s => s.id === 'client_data');
+                    if (clientEntry && clientEntry.name !== 'بيانات العميل') {
+                        clientEntry.name = 'بيانات العميل';
+                    }
+                    // Remove legacy adobe_unregistered if present
+                    updated = updated.filter(s => s.id !== 'adobe_unregistered');
+
+                    // Ensure client_data_2 exists
+                    if (!updated.some(s => s.id === 'client_data_2')) {
+                        const clientIdx = updated.findIndex(s => s.id === 'client_data');
+                        const newSheet = { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
+                        if (clientIdx !== -1) {
+                            updated.splice(clientIdx + 1, 0, newSheet);
+                        } else {
+                            updated.unshift(newSheet);
+                        }
+                    }
                     if (!updated.some(s => s.id === 'customers_data')) {
                         const trashIdx = updated.findIndex(s => s.id === 'trash_data');
                         const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
@@ -560,7 +578,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             refreshAllCounts();
             if (currentSheetId === 'account_data') {
                 refreshAvailableAccounts();
-            } else if (currentSheetId === 'client_data' || currentSheetId === 'merchant_data') {
+            } else if (currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data') {
                 syncAccountsFromClientData(currentSheetId, sanitized);
             }
         } catch (e) {
@@ -611,7 +629,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         return sheetsList.find(s => s.id === currentSheetId) || sheetsList[0] || DEFAULT_SHEETS[0];
     }, [sheetsList, currentSheetId]);
 
-    const isClientOrMerchant = currentSheetId === 'client_data' || currentSheetId === 'merchant_data';
+    const isClientOrMerchant = currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data';
+    const isClientGroup = currentSheetId === 'client_data' || currentSheetId === 'client_data_2';
     const isCustomersSheet = currentSheetId === 'customers_data';
 
     // Copy helper with feedback
@@ -2042,21 +2061,59 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 )}
             </div>
 
-
-
             {/* Main Action Bar */}
             <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 space-y-4">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     {/* Title and rename button */}
                     <div className="flex items-center gap-3">
-                        <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${currentSheet.color} text-white flex items-center justify-center text-xl shadow-md`}>
+                        <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${currentSheet.color} text-white flex items-center justify-center text-xl shadow-md flex-shrink-0`}>
                             <i className={`fa-solid ${currentSheet.icon}`}></i>
                         </div>
                         <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-3">
                                 <h2 className="text-lg md:text-xl font-black text-slate-800 dark:text-white">
                                     {currentSheet.name}
                                 </h2>
+
+                                {isClientGroup && (
+                                    <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner gap-1">
+                                        <button
+                                            onClick={() => setActiveSheetId('client_data')}
+                                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                                                currentSheetId === 'client_data'
+                                                    ? 'bg-blue-600 text-white shadow-md scale-[1.02]'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                            }`}
+                                            title="البيانات المسجلة في بيانات الحساب"
+                                        >
+                                            <i className="fa-solid fa-user-tie text-[11px]"></i>
+                                            <span>بيانات العميل</span>
+                                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                                currentSheetId === 'client_data' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }`}>
+                                                {allSheetsCounts['client_data'] || 0}
+                                            </span>
+                                        </button>
+
+                                        <button
+                                            onClick={() => setActiveSheetId('client_data_2')}
+                                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                                                currentSheetId === 'client_data_2'
+                                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md scale-[1.02]'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                            }`}
+                                            title="البيانات غير المسجلة في بيانات الحساب"
+                                        >
+                                            <i className="fa-solid fa-user-tie text-[11px]"></i>
+                                            <span>بيانات العميل 2</span>
+                                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                                currentSheetId === 'client_data_2' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }`}>
+                                                {allSheetsCounts['client_data_2'] || 0}
+                                            </span>
+                                        </button>
+                                    </div>
+                                )}
                                 {canCustomize && (
                                     <button
                                         onClick={() => {
@@ -2070,11 +2127,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </button>
                                 )}
                             </div>
-                            <p className="text-xs text-slate-400 dark:text-slate-500">
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                                 {isTrashSheet
                                     ? 'سلة المهملات: استعراض الحسابات والبيانات المحذوفة مع إمكانية استردادها للشيت الأصلي أو حذفها نهائياً'
                                     : isCustomersSheet
                                     ? 'إدارة وحفظ بيانات العملاء وأرقام الهواتف ونوع الاشتراك والتواصل السريع'
+                                    : isClientGroup
+                                    ? (currentSheetId === 'client_data'
+                                        ? 'بيانات العميل: إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
+                                        : 'بيانات العميل 2: إدارة وحفظ بيانات عملاء الخدمة غير المسجلين في بيانات الحساب محلياً')
                                     : isClientOrMerchant
                                     ? 'إدارة وحفظ بيانات الإيميل والباسورد الأول والثاني ومدة الاشتراك محلياً'
                                     : currentSheetId === 'account_data'
@@ -2163,7 +2224,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     ? "بحث في اسم العميل، رقم التليفون، نوع الاشتراك، الملاحظات..."
                                     : currentSheetId === 'merchant_data'
                                     ? "بحث في الإيميل، اسم التاجر، مدة الاشتراك..."
-                                    : currentSheetId === 'client_data'
+                                    : currentSheetId === 'client_data' || currentSheetId === 'client_data_2'
                                     ? "بحث في الإيميل، الخدمة، مدة الاشتراك..."
                                     : currentSheetId === 'account_data'
                                     ? "بحث في الإيميل، الباسورد، تاريخ الإنشاء، التذكير، الملاحظات..."
@@ -2491,7 +2552,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isVisaVisible = visibleSecrets[`${rec.id}_visa`];
 
                                     const isAccountSheet = currentSheetId === 'account_data';
-                                    const isClientOrMerchantSheet = currentSheetId === 'client_data' || currentSheetId === 'merchant_data';
+                                    const isClientOrMerchantSheet = currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data';
 
                                     const accStatus = isAccountSheet ? getAccountSaleStatus(rec) : null;
                                     const isFull = isAccountSheet && accStatus === 'full';
@@ -2720,12 +2781,14 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             const originId = rec.originSheetId || 'account_data';
                                                             const originBadgeStyles = {
                                                                 client_data: 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/70 dark:border-blue-800/60',
+                                                                client_data_2: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/70 dark:border-amber-800/60',
                                                                 merchant_data: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-800/60',
                                                                 account_data: 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/70 dark:border-purple-800/60',
                                                             }[originId] || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200';
 
                                                             const originIcon = {
-                                                                client_data: 'fa-solid fa-users text-blue-500',
+                                                                client_data: 'fa-solid fa-user-tie text-blue-500',
+                                                                client_data_2: 'fa-solid fa-user-tie text-amber-500',
                                                                 merchant_data: 'fa-solid fa-store text-emerald-500',
                                                                 account_data: 'fa-solid fa-user-gear text-purple-500',
                                                             }[originId] || 'fa-solid fa-file text-slate-400';

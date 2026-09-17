@@ -5,6 +5,7 @@ import { calculateRemainingTime, calculateAccountReminder } from '../utils/dataR
 
 const DEFAULT_SHEETS = [
     { id: 'client_data', label: 'بيانات العميل', icon: 'fa-user-tie', color: 'text-blue-400', activeBg: 'bg-blue-600' },
+    { id: 'client_data_2', label: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'text-amber-400', activeBg: 'bg-amber-600' },
     { id: 'merchant_data', label: 'بيانات التاجر', icon: 'fa-store', color: 'text-emerald-400', activeBg: 'bg-emerald-600' },
     { id: 'account_data', label: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'text-purple-400', activeBg: 'bg-purple-600' },
     { id: 'customers_data', label: 'داتا العملاء', icon: 'fa-address-book', color: 'text-cyan-400', activeBg: 'bg-cyan-600' },
@@ -57,6 +58,32 @@ export default function Sidebar ({ isOpen, onClose }) {
             if (savedConfig) {
                 let parsed = JSON.parse(savedConfig);
                 if (Array.isArray(parsed)) {
+                    let configChanged = false;
+                    // Ensure client_data label is updated
+                    const clientEntry = parsed.find(p => p.id === 'client_data');
+                    if (clientEntry && clientEntry.name !== 'بيانات العميل') {
+                        clientEntry.name = 'بيانات العميل';
+                        configChanged = true;
+                    }
+
+                    // Remove adobe_unregistered if present
+                    if (parsed.some(p => p.id === 'adobe_unregistered')) {
+                        parsed = parsed.filter(p => p.id !== 'adobe_unregistered');
+                        configChanged = true;
+                    }
+
+                    // Ensure client_data_2 is present
+                    if (!parsed.some(p => p.id === 'client_data_2')) {
+                        const clientIdx = parsed.findIndex(p => p.id === 'client_data');
+                        const newSheet = { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
+                        if (clientIdx !== -1) {
+                            parsed.splice(clientIdx + 1, 0, newSheet);
+                        } else {
+                            parsed.unshift(newSheet);
+                        }
+                        configChanged = true;
+                    }
+
                     if (!parsed.some(p => p.id === 'customers_data')) {
                         const trashIdx = parsed.findIndex(p => p.id === 'trash_data');
                         const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
@@ -65,13 +92,20 @@ export default function Sidebar ({ isOpen, onClose }) {
                         } else {
                             parsed.push(newSheet);
                         }
+                        configChanged = true;
+                    }
+
+                    if (configChanged) {
                         localStorage.setItem('sv_sheets_config', JSON.stringify(parsed));
                     }
+
                     setSheetItems(DEFAULT_SHEETS.map(ds => {
                         const found = parsed.find(p => p.id === ds.id);
                         return found ? { ...ds, label: found.name || ds.label } : ds;
                     }));
                 }
+            } else {
+                setSheetItems(DEFAULT_SHEETS);
             }
         } catch {}
 
