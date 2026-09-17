@@ -2086,8 +2086,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             }`}
                                             title="البيانات المسجلة في بيانات الحساب"
                                         >
-                                            <i className="fa-solid fa-user-tie text-[11px]"></i>
-                                            <span>بيانات العميل</span>
+                                            <i className="fa-solid fa-circle-check text-[11px]"></i>
+                                            <span>ادوبي مسجل</span>
                                             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                                                 currentSheetId === 'client_data' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                                             }`}>
@@ -2104,8 +2104,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             }`}
                                             title="البيانات غير المسجلة في بيانات الحساب"
                                         >
-                                            <i className="fa-solid fa-user-tie text-[11px]"></i>
-                                            <span>بيانات العميل 2</span>
+                                            <i className="fa-solid fa-clock-rotate-left text-[11px]"></i>
+                                            <span>ادوبي غير مسجل</span>
                                             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                                                 currentSheetId === 'client_data_2' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                                             }`}>

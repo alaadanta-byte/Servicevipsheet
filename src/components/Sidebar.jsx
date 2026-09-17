@@ -18,6 +18,7 @@ export default function Sidebar ({ isOpen, onClose }) {
     const [sheetCounts, setSheetCounts] = useState({});
     const [totalAlertsCount, setTotalAlertsCount] = useState(0);
     const [sheetItems, setSheetItems] = useState(DEFAULT_SHEETS);
+    const [isClientGroupOpen, setIsClientGroupOpen] = useState(true);
 
     const [isDark, setIsDark] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -217,7 +218,91 @@ export default function Sidebar ({ isOpen, onClose }) {
                             </span>
                         </button>
                     )}
+                    {/* Unified Client Data Group Menu (بيانات العميل) */}
+                    {(user?.role === 'admin' || hasPermission('sheet_client_data') || hasPermission('client_data') || hasPermission('sheet_client_data_2') || hasPermission('client_data_2')) && (
+                        <div className="space-y-1">
+                            <button
+                                onClick={() => {
+                                    setIsClientGroupOpen(prev => !prev);
+                                    if (activeTab !== 'client_data' && activeTab !== 'client_data_2') {
+                                        const canOpenClient1 = user?.role === 'admin' || hasPermission('sheet_client_data') || hasPermission('client_data');
+                                        setActiveTab(canOpenClient1 ? 'client_data' : 'client_data_2');
+                                    }
+                                }}
+                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                                    (activeTab === 'client_data' || activeTab === 'client_data_2')
+                                        ? 'bg-slate-800 text-white font-bold border border-blue-500/40 shadow-sm'
+                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white font-medium'
+                                }`}
+                            >
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                    <i className={`fa-solid fa-users-viewfinder w-5 text-center text-base transition-transform group-hover:scale-110 ${
+                                        (activeTab === 'client_data' || activeTab === 'client_data_2') ? 'text-blue-400' : 'text-blue-400'
+                                    }`}></i>
+                                    <span className="text-sm truncate font-black">بيانات العميل</span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs px-2 py-0.5 rounded-full font-black bg-blue-950/90 text-blue-300 border border-blue-800/60">
+                                        {(sheetCounts['client_data'] || 0) + (sheetCounts['client_data_2'] || 0)}
+                                    </span>
+                                    <i className={`fa-solid fa-chevron-down text-xs text-slate-400 transition-transform duration-200 ${
+                                        isClientGroupOpen ? 'rotate-180 text-blue-400' : ''
+                                    }`}></i>
+                                </div>
+                            </button>
+
+                            {/* Sub-menu: ادوبي مسجل / ادوبي غير مسجل */}
+                            {isClientGroupOpen && (
+                                <div className="pr-4 pl-1 space-y-1 border-r-2 border-blue-500/30 mr-4 my-1 transition-all">
+                                    {(user?.role === 'admin' || hasPermission('sheet_client_data') || hasPermission('client_data')) && (
+                                        <button
+                                            onClick={() => { setActiveTab('client_data'); onClose(); }}
+                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-150 group cursor-pointer ${
+                                                activeTab === 'client_data'
+                                                    ? 'bg-blue-600 text-white font-black shadow-md scale-[1.02]'
+                                                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <i className={`fa-solid fa-circle-check text-xs ${activeTab === 'client_data' ? 'text-white' : 'text-blue-400'}`}></i>
+                                                <span className="text-xs truncate">ادوبي مسجل</span>
+                                            </div>
+                                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                                                activeTab === 'client_data' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+                                            }`}>
+                                                {sheetCounts['client_data'] || 0}
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    {(user?.role === 'admin' || hasPermission('sheet_client_data_2') || hasPermission('client_data_2')) && (
+                                        <button
+                                            onClick={() => { setActiveTab('client_data_2'); onClose(); }}
+                                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-150 group cursor-pointer ${
+                                                activeTab === 'client_data_2'
+                                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black shadow-md scale-[1.02]'
+                                                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white font-bold'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <i className={`fa-solid fa-clock-rotate-left text-xs ${activeTab === 'client_data_2' ? 'text-white' : 'text-amber-400'}`}></i>
+                                                <span className="text-xs truncate">ادوبي غير مسجل</span>
+                                            </div>
+                                            <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                                                activeTab === 'client_data_2' ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+                                            }`}>
+                                                {sheetCounts['client_data_2'] || 0}
+                                            </span>
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {visibleSheets.map(item => {
+                        if (item.id === 'client_data' || item.id === 'client_data_2') return null;
                         const isCurrentActive = activeTab === item.id;
                         const count = sheetCounts[item.id] || 0;
 
