@@ -956,8 +956,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             selectedAccount: '',
             notes: formData.notes,
             accountCreatedDate: formData.accountCreatedDate || new Date().toISOString().slice(0, 10),
-            reminderDays: formData.reminderDays || '',
-            reminderStatus: formData.reminderStatus || (editingRecord?.reminderStatus || 'active'),
+            reminderDays: currentSheetId === 'account_data_2' ? '' : (formData.reminderDays || ''),
+            reminderStatus: currentSheetId === 'account_data_2' ? '' : (formData.reminderStatus || (editingRecord?.reminderStatus || 'active')),
             saleStatus: formData.saleStatus || (editingRecord?.saleStatus || null),
             isSold: (formData.saleStatus === 'full' || formData.saleStatus === 'sold') ? true : (formData.saleStatus === 'available' || formData.saleStatus === 'unsold') ? false : (editingRecord?.isSold ?? null)
         } : {
@@ -1974,7 +1974,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     // Subscriptions & Account Alert Groups (قرب التجديد / التذكير في آخر 3 أيام، ومنتهي/مستحق، وساري)
     const alertGroups = useMemo(() => {
-        if (currentSheetId === 'trash_data' || currentSheetId === 'customers_data') {
+        if (currentSheetId === 'trash_data' || currentSheetId === 'customers_data' || currentSheetId === 'account_data_2') {
             return { nearRenewal: [], expired: [], active: [] };
         }
 
@@ -2013,7 +2013,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         let result = records;
 
         // Filter by Expiry Status Tab (All, Near Renewal, Expired, Active) - only for sheets with subscription dates
-        if (currentSheetId !== 'customers_data' && currentSheetId !== 'trash_data') {
+        if (currentSheetId !== 'customers_data' && currentSheetId !== 'trash_data' && currentSheetId !== 'account_data_2') {
             if (expiryFilter === 'near') {
                 result = result.filter(r => {
                     const rem = isAccountSheet
@@ -2222,6 +2222,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         const withBothPasswords = records.filter(r => r.password && r.password2).length;
         const withEmail = records.filter(r => r.email).length;
         const withReminder = records.filter(r => r.reminderDays && parseInt(r.reminderDays) > 0).length;
+        const availableAccountsCount = records.filter(r => !r.saleStatus || r.saleStatus === 'available').length;
+        const usedAccountsCount = records.filter(r => r.saleStatus && r.saleStatus !== 'available').length;
         return {
             total,
             withInvoices,
@@ -2231,6 +2233,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             withBothPasswords,
             withEmail,
             withReminder,
+            availableAccountsCount,
+            usedAccountsCount,
             nearCount: alertGroups.nearRenewal.length,
             expiredCount: alertGroups.expired.length
         };
@@ -2354,6 +2358,38 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xl">
                                 <i className="fa-solid fa-shield-halved"></i>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">إيميلات مسجلة</p>
+                                <h4 className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{stats.withEmail}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-envelope"></i>
+                            </div>
+                        </div>
+                    </>
+                ) : currentSheetId === 'account_data_2' ? (
+                    <>
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">حسابات متاحة للبيع</p>
+                                <h4 className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{stats.availableAccountsCount}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-circle-check"></i>
+                            </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">حسابات مباعة / مستخدمة</p>
+                                <h4 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{stats.usedAccountsCount}</h4>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xl">
+                                <i className="fa-solid fa-user-check"></i>
                             </div>
                         </div>
 
@@ -2664,7 +2700,9 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     ? "بحث في الإيميل، اسم التاجر، مدة الاشتراك..."
                                     : currentSheetId === 'client_data' || currentSheetId === 'client_data_2'
                                     ? "بحث في الإيميل، الخدمة، مدة الاشتراك..."
-                                    : isAccountSheet
+                                    : currentSheetId === 'account_data_2'
+                                    ? "بحث في الإيميل، الباسورد، تاريخ الإنشاء، الملاحظات..."
+                                    : currentSheetId === 'account_data'
                                     ? "بحث في الإيميل، الباسورد، تاريخ الإنشاء، التذكير، الملاحظات..."
                                     : "بحث في الإيميل، الباسورد، الفاتورة، الفيزا، الملاحظات..."
                             }
@@ -2944,15 +2982,17 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
                                             </div>
                                         </th>
-                                        <th
-                                            onClick={() => setSortBy({ field: 'accountReminderDays', asc: sortBy.field === 'accountReminderDays' ? !sortBy.asc : true })}
-                                            className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
-                                        >
-                                            <div className="flex items-center gap-1">
-                                                <span>التذكير</span>
-                                                <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
-                                            </div>
-                                        </th>
+                                        {currentSheetId !== 'account_data_2' && (
+                                            <th
+                                                onClick={() => setSortBy({ field: 'accountReminderDays', asc: sortBy.field === 'accountReminderDays' ? !sortBy.asc : true })}
+                                                className="px-1.5 py-1.5 cursor-pointer hover:text-indigo-600 transition"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    <span>التذكير</span>
+                                                    <i className="fa-solid fa-sort text-[8px] text-slate-400"></i>
+                                                </div>
+                                            </th>
+                                        )}
                                     </>
                                 ) : (
                                     <>
@@ -3000,7 +3040,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                             {paginatedRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isCustomersSheet ? 7 : isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (isAccountSheet ? 7 : 9)))} className="p-12 text-center text-slate-400">
+                                    <td colSpan={isCustomersSheet ? 7 : isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data_2' ? 6 : (isAccountSheet ? 7 : 9))))} className="p-12 text-center text-slate-400">
                                         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
                                             <i className={`fa-solid ${isTrashSheet ? 'fa-trash-can text-rose-400' : 'fa-folder-open'}`}></i>
                                         </div>
@@ -3564,7 +3604,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     </td>
 
                                                     {/* Account Reminder Status (متبقي X يوم للتذكير / استوفى باقي المدة) */}
-                                                    <td className="px-1.5 py-1 font-medium">
+                                                    {currentSheetId !== 'account_data_2' && (
+                                                        <td className="px-1.5 py-1 font-medium">
                                                         {(() => {
                                                             const isFulfilled = rec.reminderStatus === 'fulfilled';
                                                             const effectiveDate = rec.accountCreatedDate || (rec.created_at ? String(rec.created_at).slice(0, 10) : '');
@@ -3646,7 +3687,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 </div>
                                                             );
                                                         })()}
-                                                    </td>
+                                                        </td>
+                                                    )}
                                                 </>
                                             ) : (
                                                 <>
@@ -4676,10 +4718,10 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/30 rounded-2xl border border-purple-200/70 dark:border-purple-800/50 space-y-3">
                                     <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-xs">
                                         <i className="fa-solid fa-clock-rotate-left text-sm"></i>
-                                        <span>بيانات التذكير وتاريخ إنشاء الحساب</span>
+                                        <span>{currentSheetId === 'account_data_2' ? 'تاريخ إنشاء الحساب' : 'بيانات التذكير وتاريخ إنشاء الحساب'}</span>
                                     </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className={currentSheetId === 'account_data_2' ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-1 sm:grid-cols-2 gap-3'}>
                                         {/* Creation Date */}
                                         <div>
                                             <div className="flex items-center justify-between mb-1.5">
@@ -4704,106 +4746,112 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             </div>
                                         </div>
 
-                                        {/* Reminder Days */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                                فترة التذكير (عدد الأيام)
-                                            </label>
-                                            <div className="relative">
-                                                <i className="fa-solid fa-bell absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    max="3650"
-                                                    value={formData.reminderDays}
-                                                    onChange={(e) => setFormData({ ...formData, reminderDays: e.target.value })}
-                                                    placeholder="مثال: 30"
-                                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                                                />
+                                        {/* Reminder Days - Hidden for account_data_2 */}
+                                        {currentSheetId !== 'account_data_2' && (
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                                    فترة التذكير (عدد الأيام)
+                                                </label>
+                                                <div className="relative">
+                                                    <i className="fa-solid fa-bell absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="3650"
+                                                        value={formData.reminderDays}
+                                                        onChange={(e) => setFormData({ ...formData, reminderDays: e.target.value })}
+                                                        placeholder="مثال: 30"
+                                                        className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                                                    />
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
 
-                                    {/* Quick chips for reminder days */}
-                                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                                        <span className="text-[10.5px] text-slate-400 font-bold ml-1">خيارات سريعة:</span>
-                                        {[15, 30, 45, 60, 90].map(days => (
-                                            <button
-                                                key={days}
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, reminderDays: String(days) })}
-                                                className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition ${
-                                                    String(formData.reminderDays) === String(days)
-                                                        ? 'bg-purple-600 text-white shadow-xs'
-                                                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-slate-750'
-                                                }`}
-                                            >
-                                                {days} يوم
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Reminder Status Selector: تذكير نشط vs استوفى باقي المدة */}
-                                    <div className="pt-2 border-t border-purple-200/50 dark:border-purple-800/40">
-                                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                            حالة التذكير
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, reminderStatus: 'active' })}
-                                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
-                                                    formData.reminderStatus !== 'fulfilled'
-                                                        ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-xs'
-                                                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
-                                                }`}
-                                            >
-                                                <i className="fa-solid fa-clock text-purple-500 text-xs"></i>
-                                                <span>تذكير نشط (حساب المدة)</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, reminderStatus: 'fulfilled' })}
-                                                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
-                                                    formData.reminderStatus === 'fulfilled'
-                                                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
-                                                        : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
-                                                }`}
-                                            >
-                                                <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
-                                                <span>استوفى باقي المدة</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Live calculation info box */}
-                                    {formData.reminderStatus === 'fulfilled' ? (
-                                        <div className="mt-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800/70 flex items-center justify-between text-xs text-emerald-950 dark:text-emerald-200">
-                                            <div className="flex items-center gap-2">
-                                                <i className="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400"></i>
-                                                <span className="font-bold">حالة الحساب: تم استيفاء باقي المدة</span>
+                                    {/* Quick chips & Reminder Status Selector - Hidden for account_data_2 */}
+                                    {currentSheetId !== 'account_data_2' && (
+                                        <>
+                                            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                                <span className="text-[10.5px] text-slate-400 font-bold ml-1">خيارات سريعة:</span>
+                                                {[15, 30, 45, 60, 90].map(days => (
+                                                    <button
+                                                        key={days}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, reminderDays: String(days) })}
+                                                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold transition ${
+                                                            String(formData.reminderDays) === String(days)
+                                                                ? 'bg-purple-600 text-white shadow-xs'
+                                                                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-purple-50 dark:hover:bg-slate-750'
+                                                        }`}
+                                                    >
+                                                        {days} يوم
+                                                    </button>
+                                                ))}
                                             </div>
-                                            <span className="font-bold px-2 py-0.5 rounded-md bg-emerald-200/80 dark:bg-emerald-800/90 text-[10.5px]">
-                                                استوفى باقي المدة ✓
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        formData.accountCreatedDate && formData.reminderDays && parseInt(formData.reminderDays) > 0 && (() => {
-                                            const reminderPreview = calculateAccountReminder(formData.accountCreatedDate, formData.reminderDays);
-                                            if (reminderPreview.status === 'none') return null;
-                                            return (
-                                                <div className="mt-1.5 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/90 dark:border-purple-800/70 flex items-center justify-between text-xs text-purple-950 dark:text-purple-200">
+
+                                            {/* Reminder Status Selector: تذكير نشط vs استوفى باقي المدة */}
+                                            <div className="pt-2 border-t border-purple-200/50 dark:border-purple-800/40">
+                                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                                    حالة التذكير
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, reminderStatus: 'active' })}
+                                                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                                                            formData.reminderStatus !== 'fulfilled'
+                                                                ? 'border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/20 shadow-xs'
+                                                                : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <i className="fa-solid fa-clock text-purple-500 text-xs"></i>
+                                                        <span>تذكير نشط (حساب المدة)</span>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, reminderStatus: 'fulfilled' })}
+                                                        className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer select-none ${
+                                                            formData.reminderStatus === 'fulfilled'
+                                                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
+                                                                : 'border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-850 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <i className="fa-solid fa-circle-check text-emerald-500 text-xs"></i>
+                                                        <span>استوفى باقي المدة</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Live calculation info box */}
+                                            {formData.reminderStatus === 'fulfilled' ? (
+                                                <div className="mt-1.5 p-2.5 rounded-xl bg-emerald-100/70 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800/70 flex items-center justify-between text-xs text-emerald-950 dark:text-emerald-200">
                                                     <div className="flex items-center gap-2">
-                                                        <i className="fa-solid fa-calendar-check text-purple-600 dark:text-purple-400"></i>
-                                                        <span>موعد التذكير: <strong>{reminderPreview.targetDate}</strong></span>
+                                                        <i className="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400"></i>
+                                                        <span className="font-bold">حالة الحساب: تم استيفاء باقي المدة</span>
                                                     </div>
-                                                    <span className="font-bold px-2 py-0.5 rounded-md bg-purple-200/80 dark:bg-purple-800/90 text-[10.5px]">
-                                                        {reminderPreview.text}
+                                                    <span className="font-bold px-2 py-0.5 rounded-md bg-emerald-200/80 dark:bg-emerald-800/90 text-[10.5px]">
+                                                        استوفى باقي المدة ✓
                                                     </span>
                                                 </div>
-                                            );
-                                        })()
+                                            ) : (
+                                                formData.accountCreatedDate && formData.reminderDays && parseInt(formData.reminderDays) > 0 && (() => {
+                                                    const reminderPreview = calculateAccountReminder(formData.accountCreatedDate, formData.reminderDays);
+                                                    if (reminderPreview.status === 'none') return null;
+                                                    return (
+                                                        <div className="mt-1.5 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-900/40 border border-purple-200/90 dark:border-purple-800/70 flex items-center justify-between text-xs text-purple-950 dark:text-purple-200">
+                                                            <div className="flex items-center gap-2">
+                                                                <i className="fa-solid fa-calendar-check text-purple-600 dark:text-purple-400"></i>
+                                                                <span>موعد التذكير: <strong>{reminderPreview.targetDate}</strong></span>
+                                                            </div>
+                                                            <span className="font-bold px-2 py-0.5 rounded-md bg-purple-200/80 dark:bg-purple-800/90 text-[10.5px]">
+                                                                {reminderPreview.text}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })()
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             )}

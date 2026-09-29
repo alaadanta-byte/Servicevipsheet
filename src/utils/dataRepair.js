@@ -464,7 +464,7 @@ export const scanAndRepairAllSheets = (sheets = DEFAULT_SHEETS) => {
                     typeof item.visa !== 'string' ||
                     typeof item.invoiceNumber !== 'string' ||
                     !item.id ||
-                    ((sheet.id === 'account_data' || sheet.id === 'account_data_2') && (!item.accountCreatedDate || !item.reminderDays))
+                    (sheet.id === 'account_data' && (!item.accountCreatedDate || !item.reminderDays))
                 );
                 if (wasInvalid) sheetRepairedCount++;
                 cleaned.push(sanitized);
