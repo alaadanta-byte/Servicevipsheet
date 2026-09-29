@@ -2685,6 +2685,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         ) : (
                             /* Add Single Record */
                             canAdd && (
+                                <>
                                 <button
                                     onClick={() => {
                                         refreshAvailableAccounts();
