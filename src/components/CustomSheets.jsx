@@ -4828,7 +4828,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         max="3650"
                                                         value={formData.reminderDays}
                                                         onChange={(e) => setFormData({ ...formData, reminderDays: e.target.value })}
-                                                        placeholder="مثال: 30"
+                                                        placeholder="مثال: 20"
                                                         className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pr-9 pl-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                                                     />
                                                 </div>
@@ -4841,7 +4841,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         <>
                                             <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                                                 <span className="text-[10.5px] text-slate-400 font-bold ml-1">خيارات سريعة:</span>
-                                                {[15, 30, 45, 60, 90].map(days => (
+                                                {[20, 25, 30, 45, 60, 90].map(days => (
                                                     <button
                                                         key={days}
                                                         type="button"
