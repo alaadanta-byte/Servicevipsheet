@@ -1217,7 +1217,7 @@ export const sheetsAPI = {
         return localRecords;
     },
 
-    async saveSheetRecords(sheetId, records) {
+    async saveSheetRecords(sheetId, records, force = false) {
         try {
             localStorage.setItem(`${SHEET_STORAGE_PREFIX}${sheetId}`, JSON.stringify(records));
         } catch (e) {
@@ -1226,6 +1226,23 @@ export const sheetsAPI = {
 
         if (isConfigured) {
             try {
+                // Safety check: protect against overwriting large cloud dataset with accidentally empty/near-empty local state
+                if (!force && sheetId !== 'trash_data' && Array.isArray(records)) {
+                    const { data: existing } = await supabase
+                        .from('custom_sheets_data')
+                        .select('records')
+                        .eq('sheet_id', sheetId)
+                        .maybeSingle();
+
+                    if (existing && Array.isArray(existing.records) && existing.records.length >= 10) {
+                        // Prevent accidental wipe or truncation: reject if incoming records are less than 50% of cloud records
+                        if (records.length < Math.floor(existing.records.length * 0.5) && (existing.records.length - records.length) > 5) {
+                            console.warn(`[SAFETY LOCK] Prevented overwriting ${existing.records.length} records in "${sheetId}" with only ${records.length} records.`);
+                            return;
+                        }
+                    }
+                }
+
                 const { error } = await supabase.from('custom_sheets_data').upsert({
                     sheet_id: sheetId,
                     records,

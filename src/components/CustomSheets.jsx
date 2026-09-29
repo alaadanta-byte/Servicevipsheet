@@ -237,6 +237,94 @@ export const calculateRemainingTime = (rawStartDate, rawDuration, rawCreatedAt) 
     };
 };
 
+const ensureAllSheetsConfig = (parsed) => {
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_SHEETS;
+    let updated = [...parsed];
+    const hasInvoice = updated.some(s => s.id === 'invoice_data');
+    if (hasInvoice) {
+        updated = updated.map(s => s.id === 'invoice_data' ? {
+            id: 'trash_data',
+            name: 'سلة المهملات',
+            icon: 'fa-trash-can',
+            color: 'from-rose-600 to-red-600',
+            badgeColor: 'bg-rose-500'
+        } : s);
+    }
+    // Ensure client_data is named 'بيانات العميل'
+    const clientEntry = updated.find(s => s.id === 'client_data');
+    if (clientEntry && clientEntry.name !== 'بيانات العميل') {
+        clientEntry.name = 'بيانات العميل';
+    }
+    // Remove legacy adobe_unregistered if present
+    updated = updated.filter(s => s.id !== 'adobe_unregistered');
+
+    // Ensure client_data_2 exists and is named ادوبي غير مسجل
+    const c2Idx = updated.findIndex(s => s.id === 'client_data_2');
+    if (c2Idx === -1) {
+        const clientIdx = updated.findIndex(s => s.id === 'account_data');
+        const newSheet = { id: 'client_data_2', name: 'ادوبي غير مسجل', icon: 'fa-user-clock', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
+        if (clientIdx !== -1) {
+            updated.splice(clientIdx + 1, 0, newSheet);
+        } else {
+            updated.push(newSheet);
+        }
+    } else {
+        if (updated[c2Idx].name !== 'ادوبي غير مسجل') {
+            updated[c2Idx].name = 'ادوبي غير مسجل';
+            updated[c2Idx].icon = 'fa-user-clock';
+        }
+    }
+
+    // Ensure account_data_2 exists
+    const acc2Idx = updated.findIndex(s => s.id === 'account_data_2');
+    if (acc2Idx === -1) {
+        const c2Pos = updated.findIndex(s => s.id === 'client_data_2');
+        const newSheet = { id: 'account_data_2', name: 'بيانات الحساب 2', icon: 'fa-shield-halved', color: 'from-orange-600 to-amber-600', badgeColor: 'bg-orange-500' };
+        if (c2Pos !== -1) {
+            updated.splice(c2Pos + 1, 0, newSheet);
+        } else {
+            updated.push(newSheet);
+        }
+    } else {
+        if (!updated[acc2Idx].name) updated[acc2Idx].name = 'بيانات الحساب 2';
+    }
+    // Ensure customers_data exists
+    if (!updated.some(s => s.id === 'customers_data')) {
+        const trashIdx = updated.findIndex(s => s.id === 'trash_data');
+        const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
+        if (trashIdx !== -1) {
+            updated.splice(trashIdx, 0, newSheet);
+        } else {
+            updated.push(newSheet);
+        }
+    }
+    // Ensure trash_data exists
+    if (!updated.some(s => s.id === 'trash_data')) {
+        updated.push({
+            id: 'trash_data',
+            name: 'سلة المهملات',
+            icon: 'fa-trash-can',
+            color: 'from-rose-600 to-red-600',
+            badgeColor: 'bg-rose-500'
+        });
+    }
+    // Ensure all remaining DEFAULT_SHEETS exist
+    DEFAULT_SHEETS.forEach(ds => {
+        if (!updated.some(s => s.id === ds.id)) {
+            updated.push(ds);
+        } else {
+            const idx = updated.findIndex(s => s.id === ds.id);
+            if (idx !== -1) {
+                if (!updated[idx].icon) updated[idx].icon = ds.icon;
+                if (!updated[idx].color) updated[idx].color = ds.color;
+                if (!updated[idx].badgeColor) updated[idx].badgeColor = ds.badgeColor;
+                if (!updated[idx].name) updated[idx].name = ds.name;
+            }
+        }
+    });
+    return updated;
+};
+
 export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const { user, hasPermission } = useAuth();
     const { showConfirm, showAlert } = useConfirm();
@@ -257,44 +345,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
-                    let updated = [...parsed];
-                    const hasInvoice = updated.some(s => s.id === 'invoice_data');
-                    if (hasInvoice) {
-                        updated = updated.map(s => s.id === 'invoice_data' ? {
-                            id: 'trash_data',
-                            name: 'سلة المهملات',
-                            icon: 'fa-trash-can',
-                            color: 'from-rose-600 to-red-600',
-                            badgeColor: 'bg-rose-500'
-                        } : s);
-                    }
-                    // Ensure client_data is named 'بيانات العميل'
-                    const clientEntry = updated.find(s => s.id === 'client_data');
-                    if (clientEntry && clientEntry.name !== 'بيانات العميل') {
-                        clientEntry.name = 'بيانات العميل';
-                    }
-                    // Remove legacy adobe_unregistered if present
-                    updated = updated.filter(s => s.id !== 'adobe_unregistered');
-
-                    // Ensure client_data_2 exists
-                    if (!updated.some(s => s.id === 'client_data_2')) {
-                        const clientIdx = updated.findIndex(s => s.id === 'client_data');
-                        const newSheet = { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
-                        if (clientIdx !== -1) {
-                            updated.splice(clientIdx + 1, 0, newSheet);
-                        } else {
-                            updated.unshift(newSheet);
-                        }
-                    }
-                    if (!updated.some(s => s.id === 'customers_data')) {
-                        const trashIdx = updated.findIndex(s => s.id === 'trash_data');
-                        const newSheet = { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' };
-                        if (trashIdx !== -1) {
-                            updated.splice(trashIdx, 0, newSheet);
-                        } else {
-                            updated.push(newSheet);
-                        }
-                    }
+                    const updated = ensureAllSheetsConfig(parsed);
                     localStorage.setItem('sv_sheets_config', JSON.stringify(updated));
                     return updated;
                 }
@@ -382,7 +433,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         accountCreatedDate: '',
         reminderDays: '',
         reminderStatus: 'active',
-        saleStatus: ''
+        saleStatus: '',
+        saleStatusMode: 'auto'
     });
 
     // Stored accounts loaded from account_data for dropdown selection
@@ -390,15 +442,79 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     const refreshAvailableAccounts = () => {
         try {
-            const key = `${STORAGE_PREFIX}account_data`;
+            const targetAccountSheetId = (currentSheetId === 'client_data_2' || currentSheetId === 'account_data_2')
+                ? 'account_data_2'
+                : 'account_data';
+            const key = `${STORAGE_PREFIX}${targetAccountSheetId}`;
             const raw = localStorage.getItem(key);
+            let parsed = [];
             if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    const sanitized = parsed.map((a, i) => sanitizeRecord(a, i)).filter(Boolean);
-                    setAvailableAccounts(sanitized);
-                    return;
+                try { parsed = JSON.parse(raw); } catch {}
+            }
+            if (Array.isArray(parsed)) {
+                // Get client records to calculate live device usage per account
+                let clientRecs = [];
+                let merchantRecs = [];
+                if (targetAccountSheetId === 'account_data_2') {
+                    try {
+                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                        if (cRaw) clientRecs = JSON.parse(cRaw);
+                    } catch {}
+                    merchantRecs = [];
+                } else {
+                    try {
+                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                        if (cRaw) clientRecs = JSON.parse(cRaw);
+                    } catch {}
+                    try {
+                        const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                        if (mRaw) merchantRecs = JSON.parse(mRaw);
+                    } catch {}
                 }
+
+                const sanitized = parsed.map((a, i) => {
+                    const clean = sanitizeRecord(a, i);
+                    if (!clean) return null;
+                    const em = (clean.email || '').trim().toLowerCase();
+                    const matches = (clientRecs || []).filter(r => {
+                        if (!r) return false;
+                        const rAcc = (r.selectedAccount || '').trim().toLowerCase();
+                        const rEm = (r.email || '').trim().toLowerCase();
+                        return rAcc === em || rEm === em;
+                    });
+                    const inMerchant = (merchantRecs || []).some(r => {
+                        if (!r) return false;
+                        const rAcc = (r.selectedAccount || '').trim().toLowerCase();
+                        const rEm = (r.email || '').trim().toLowerCase();
+                        return rAcc === em || rEm === em;
+                    });
+                    const hasFullOr2Dev = inMerchant || matches.some(m => {
+                        const dt = (m.deviceType || '').trim();
+                        return dt === 'جهازين' || dt === 'شامل' || dt === 'كامل' || dt === 'Private';
+                    });
+                    const singleCount = matches.filter(m => {
+                        const dt = (m.deviceType || '').trim();
+                        return dt === 'جهاز' || dt === 'جهاز واحد' || dt === '1' || !dt;
+                    }).length;
+
+                    const isMaxedOut = hasFullOr2Dev || singleCount >= 2;
+                    const canAddOneDevice = !hasFullOr2Dev && singleCount === 1;
+                    const isFullyAvailable = !hasFullOr2Dev && singleCount === 0;
+
+                    return {
+                        ...clean,
+                        _usage: {
+                            clientMatchesCount: matches.length,
+                            hasFullOr2Dev,
+                            singleCount,
+                            isMaxedOut,
+                            canAddOneDevice,
+                            isFullyAvailable
+                        }
+                    };
+                }).filter(Boolean);
+                setAvailableAccounts(sanitized);
+                return;
             }
         } catch (e) {
             console.error('Error loading available accounts:', e);
@@ -415,7 +531,29 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (saved) {
                 const parsed = JSON.parse(saved);
                 if (Array.isArray(parsed)) {
-                    const sanitized = parsed.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                    let sanitized = parsed.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                    if (currentSheetId === 'account_data') {
+                        let clientRecs = [];
+                        let merchantRecs = [];
+                        try {
+                            const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                            if (cRaw) clientRecs = JSON.parse(cRaw);
+                        } catch {}
+                        try {
+                            const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                            if (mRaw) merchantRecs = JSON.parse(mRaw);
+                        } catch {}
+                        const { updated } = autoSyncAccountsStatus(sanitized, clientRecs, merchantRecs);
+                        sanitized = updated;
+                    } else if (currentSheetId === 'account_data_2') {
+                        let clientRecs = [];
+                        try {
+                            const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                            if (cRaw) clientRecs = JSON.parse(cRaw);
+                        } catch {}
+                        const { updated } = autoSyncAccountsStatus(sanitized, clientRecs, []);
+                        sanitized = updated;
+                    }
                     setRecords(sanitized);
                 }
             }
@@ -423,9 +561,38 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             // Sync with Supabase cloud
             const cloudRecords = await sheetsAPI.getSheetRecords(currentSheetId);
             if (cloudRecords && Array.isArray(cloudRecords)) {
-                const sanitized = cloudRecords.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                let sanitized = cloudRecords.map((item, idx) => sanitizeRecord(item, idx)).filter(Boolean);
+                if (currentSheetId === 'account_data') {
+                    let clientRecs = [];
+                    let merchantRecs = [];
+                    try {
+                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                        if (cRaw) clientRecs = JSON.parse(cRaw);
+                    } catch {}
+                    try {
+                        const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                        if (mRaw) merchantRecs = JSON.parse(mRaw);
+                    } catch {}
+                    const { updated, updatedCount } = autoSyncAccountsStatus(sanitized, clientRecs, merchantRecs);
+                    sanitized = updated;
+                    if (updatedCount > 0) {
+                        sheetsAPI.saveSheetRecords('account_data', sanitized);
+                    }
+                } else if (currentSheetId === 'account_data_2') {
+                    let clientRecs = [];
+                    try {
+                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                        if (cRaw) clientRecs = JSON.parse(cRaw);
+                    } catch {}
+                    const { updated, updatedCount } = autoSyncAccountsStatus(sanitized, clientRecs, []);
+                    sanitized = updated;
+                    if (updatedCount > 0) {
+                        sheetsAPI.saveSheetRecords('account_data_2', sanitized);
+                    }
+                }
                 setRecords(sanitized);
                 refreshAllCounts();
+                refreshAvailableAccounts();
             }
         } catch (e) {
             console.error('Failed to load sheet data:', e);
@@ -463,7 +630,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
         sheetsAPI.getSheetsConfig().then(cfg => {
             if (Array.isArray(cfg) && cfg.length > 0) {
-                setSheetsList(cfg);
+                setSheetsList(ensureAllSheetsConfig(cfg));
             }
         });
     }, []);
@@ -528,9 +695,33 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setExpiryFilter('all');
     }, [currentSheetId]);
 
-    // Background auto-sync of account_data statuses when client_data or merchant_data is updated
+    // Background auto-sync of account_data statuses when client_data, client_data_2, or merchant_data is updated
     const syncAccountsFromClientData = async (changedSheetId, changedRecords) => {
         try {
+            if (changedSheetId === 'client_data_2') {
+                const accKey = `${STORAGE_PREFIX}account_data_2`;
+                let accList = [];
+                const rawAcc = localStorage.getItem(accKey);
+                if (rawAcc) {
+                    try { accList = JSON.parse(rawAcc); } catch {}
+                }
+                if (!Array.isArray(accList) || accList.length === 0) {
+                    accList = await sheetsAPI.getSheetRecords('account_data_2');
+                }
+                if (!Array.isArray(accList) || accList.length === 0) return;
+
+                const { updated, updatedCount } = autoSyncAccountsStatus(accList, changedRecords, []);
+                if (updatedCount > 0) {
+                    localStorage.setItem(accKey, JSON.stringify(updated));
+                    sheetsAPI.saveSheetRecords('account_data_2', updated);
+                    if (currentSheetId === 'account_data_2') {
+                        setRecords(updated);
+                    }
+                }
+                refreshAvailableAccounts();
+                return;
+            }
+
             const accKey = `${STORAGE_PREFIX}account_data`;
             let accList = [];
             const rawAcc = localStorage.getItem(accKey);
@@ -562,8 +753,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (updatedCount > 0) {
                 localStorage.setItem(accKey, JSON.stringify(updated));
                 sheetsAPI.saveSheetRecords('account_data', updated);
-                refreshAvailableAccounts();
+                if (currentSheetId === 'account_data') {
+                    setRecords(updated);
+                }
             }
+            refreshAvailableAccounts();
         } catch (err) {
             console.warn('Error auto-syncing account_data statuses:', err);
         }
@@ -576,7 +770,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             setRecords(sanitized);
             sheetsAPI.saveSheetRecords(currentSheetId, sanitized);
             refreshAllCounts();
-            if (currentSheetId === 'account_data') {
+            if (currentSheetId === 'account_data' || currentSheetId === 'account_data_2') {
                 refreshAvailableAccounts();
             } else if (currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data') {
                 syncAccountsFromClientData(currentSheetId, sanitized);
@@ -630,7 +824,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     }, [sheetsList, currentSheetId]);
 
     const isClientOrMerchant = currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data';
-    const isClientGroup = currentSheetId === 'client_data' || currentSheetId === 'client_data_2';
+    const isAccountSheet = currentSheetId === 'account_data' || currentSheetId === 'account_data_2';
     const isCustomersSheet = currentSheetId === 'customers_data';
 
     // Copy helper with feedback
@@ -693,7 +887,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 showToast('يرجى إدخال البريد الإلكتروني أو كلمة المرور أو مدة الاشتراك أو بيانات الحساب على الأقل', 'warning');
                 return;
             }
-        } else if (currentSheetId === 'account_data') {
+        } else if (isAccountSheet) {
             if (!formData.email && !formData.password && !formData.password2) {
                 showToast('يرجى إدخال البريد الإلكتروني أو كلمة المرور على الأقل', 'warning');
                 return;
@@ -745,7 +939,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             reminderDays: '',
             saleStatus: null,
             isSold: null
-        } : currentSheetId === 'account_data' ? {
+        } : isAccountSheet ? {
             name: '',
             phone: '',
             email: formData.email,
@@ -788,6 +982,72 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             saleStatus: null,
             isSold: null
         };
+
+        // Strict device type & account constraints for client data sheets
+        if (currentSheetId === 'client_data' || currentSheetId === 'client_data_2') {
+            const accTarget = (cleanPayload.selectedAccount || cleanPayload.email || '').trim().toLowerCase();
+            if (accTarget) {
+                const existing = records.filter(r => {
+                    if (editingRecord && r.id === editingRecord.id) return false;
+                    const em = (r.selectedAccount || r.email || '').trim().toLowerCase();
+                    return em === accTarget;
+                });
+
+                const hasFull = existing.some(r => r.deviceType === 'جهازين' || r.deviceType === 'شامل' || r.deviceType === 'كامل');
+                const singleCount = existing.filter(r => r.deviceType === 'جهاز' || !r.deviceType).length;
+
+                if (hasFull) {
+                    showToast('لا يمكن حفظ السجل: هذا الحساب مستخدم مسبقاً كـ (شامل / جهازين) ومغلق بالكامل ❌', 'error');
+                    return;
+                }
+
+                if (cleanPayload.deviceType === 'جهازين' || cleanPayload.deviceType === 'شامل') {
+                    if (existing.length > 0) {
+                        showToast(`لا يمكن تسجيل هذا الحساب كـ (${cleanPayload.deviceType}) لأنه مسجل مسبقاً ومستخدم لأجهزة أخرى ❌`, 'error');
+                        return;
+                    }
+                } else if (cleanPayload.deviceType === 'جهاز') {
+                    if (singleCount >= 2) {
+                        showToast('لا يمكن إضافة جهاز إضافي: هذا الحساب استنفد الحد الأقصى (جهازين) بالفعل ❌', 'error');
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Auto calculate status for account sheets if mode is auto (default)
+        if (currentSheetId === 'account_data') {
+            const isAuto = cleanPayload.saleStatusMode !== 'manual';
+            cleanPayload.saleStatusMode = isAuto ? 'auto' : 'manual';
+            if (isAuto) {
+                let clientRecs = [];
+                let merchantRecs = [];
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+                try {
+                    const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                    if (mRaw) merchantRecs = JSON.parse(mRaw);
+                } catch {}
+                const autoStatus = calculateAccountAutoStatus(cleanPayload.email || cleanPayload.name || '', clientRecs, merchantRecs);
+                cleanPayload.saleStatus = autoStatus;
+                cleanPayload.isSold = autoStatus === 'full' ? true : autoStatus === 'available' ? false : null;
+            }
+        } else if (currentSheetId === 'account_data_2') {
+            const isAuto = cleanPayload.saleStatusMode !== 'manual';
+            cleanPayload.saleStatusMode = isAuto ? 'auto' : 'manual';
+            if (isAuto) {
+                let clientRecs = [];
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+                const autoStatus = calculateAccountAutoStatus(cleanPayload.email || cleanPayload.name || '', clientRecs, []);
+                cleanPayload.saleStatus = autoStatus;
+                cleanPayload.isSold = autoStatus === 'full' ? true : autoStatus === 'available' ? false : null;
+            }
+        }
 
         if (editingRecord) {
             // Edit existing
@@ -863,7 +1123,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             accountCreatedDate: rec.accountCreatedDate || '',
             reminderDays: rec.reminderDays || '',
             reminderStatus: rec.reminderStatus || 'active',
-            saleStatus: rec.saleStatus || (rec.isSold === true ? 'full' : rec.isSold === false ? 'available' : '')
+            saleStatus: rec.saleStatus || (rec.isSold === true ? 'full' : rec.isSold === false ? 'available' : ''),
+            saleStatusMode: rec.saleStatusMode || 'auto'
         });
         setShowAddModal(true);
     };
@@ -907,29 +1168,46 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         setCloneCount(1);
     };
 
-    // Move records to trash
-    const moveToTrash = (recordsToTrash, originId, originName) => {
+    // Move records to trash safely (merges with cloud & local to never lose existing trash)
+    const moveToTrash = async (recordsToTrash, originId, originName) => {
         try {
             const trashKey = `${STORAGE_PREFIX}trash_data`;
-            const existingTrashRaw = localStorage.getItem(trashKey);
             let existingTrash = [];
-            if (existingTrashRaw) {
-                try {
-                    const parsed = JSON.parse(existingTrashRaw);
-                    if (Array.isArray(parsed)) existingTrash = parsed;
-                } catch {}
+
+            // 1. Get latest trash records from API (cloud)
+            try {
+                const cloudTrash = await sheetsAPI.getSheetRecords('trash_data');
+                if (Array.isArray(cloudTrash) && cloudTrash.length > 0) {
+                    existingTrash = cloudTrash;
+                }
+            } catch {}
+
+            // 2. Fallback to local storage if existingTrash is still empty
+            if (existingTrash.length === 0) {
+                const existingTrashRaw = localStorage.getItem(trashKey);
+                if (existingTrashRaw) {
+                    try {
+                        const parsed = JSON.parse(existingTrashRaw);
+                        if (Array.isArray(parsed)) existingTrash = parsed;
+                    } catch {}
+                }
             }
 
             const now = new Date().toISOString();
             const prepared = recordsToTrash.map(rec => ({
                 ...rec,
-                deletedAt: now,
-                originSheetId: originId,
-                originSheetName: originName
+                deletedAt: rec.deletedAt || now,
+                originSheetId: originId || rec.originSheetId || 'client_data',
+                originSheetName: originName || rec.originSheetName || 'شيت'
             }));
 
-            const updatedTrash = [...prepared, ...existingTrash].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-            sheetsAPI.saveSheetRecords('trash_data', updatedTrash);
+            // Avoid duplicate items by id
+            const newIds = new Set(prepared.map(r => r.id));
+            const filteredExisting = existingTrash.filter(r => !newIds.has(r.id));
+            const updatedTrash = [...prepared, ...filteredExisting].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
+
+            localStorage.setItem(trashKey, JSON.stringify(updatedTrash));
+            await sheetsAPI.saveSheetRecords('trash_data', updatedTrash, true);
             refreshAllCounts();
         } catch (err) {
             console.error('Error moving records to trash:', err);
@@ -966,7 +1244,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
             const targetRecord = records.find(r => r.id === id);
             if (targetRecord) {
-                moveToTrash([targetRecord], currentSheetId, currentSheet?.name || 'شيت');
+                await moveToTrash([targetRecord], currentSheetId, currentSheet?.name || 'شيت');
             }
             const updated = records.filter(r => r.id !== id);
             saveRecords(updated);
@@ -977,26 +1255,52 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
     };
 
-    // Restore single record from trash back to its original sheet
-    const handleRestoreRecord = (recordToRestore) => {
+    // Restore single record from trash back to its original sheet safely
+    const handleRestoreRecord = async (recordToRestore) => {
         try {
-            const targetSheetId = recordToRestore.originSheetId || 'account_data';
-            const targetKey = `${STORAGE_PREFIX}${targetSheetId}`;
-            const targetDataRaw = localStorage.getItem(targetKey);
-            let targetRecords = [];
-            if (targetDataRaw) {
-                try {
-                    const parsed = JSON.parse(targetDataRaw);
-                    if (Array.isArray(parsed)) targetRecords = parsed;
-                } catch {}
+            // Determine smartest destination sheet id
+            let targetSheetId = recordToRestore.originSheetId;
+            if (!targetSheetId) {
+                if (recordToRestore.selectedAccount || recordToRestore.accountCreatedDate) {
+                    targetSheetId = 'account_data';
+                } else if (recordToRestore.phone && !recordToRestore.email) {
+                    targetSheetId = 'customers_data';
+                } else {
+                    targetSheetId = 'client_data';
+                }
             }
+
+            // Always get existing records from sheetsAPI (cloud with local fallback) to prevent accidental loss
+            let targetRecords = await sheetsAPI.getSheetRecords(targetSheetId);
+            if (!Array.isArray(targetRecords) || targetRecords.length === 0) {
+                const targetKey = `${STORAGE_PREFIX}${targetSheetId}`;
+                const raw = localStorage.getItem(targetKey);
+                if (raw) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) targetRecords = parsed;
+                    } catch {}
+                }
+            }
+            if (!Array.isArray(targetRecords)) targetRecords = [];
 
             // Clean trash metadata from restored record
             const { deletedAt, originSheetId, originSheetName, ...cleanRecord } = recordToRestore;
             cleanRecord.updated_at = new Date().toISOString();
 
-            const updatedTarget = [cleanRecord, ...targetRecords].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-            sheetsAPI.saveSheetRecords(targetSheetId, updatedTarget);
+            // Prevent duplicate insertion
+            const filteredTarget = targetRecords.filter(r => r.id !== cleanRecord.id);
+            const updatedTarget = [cleanRecord, ...filteredTarget].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
+
+            // Save to destination sheet with force = true
+            await sheetsAPI.saveSheetRecords(targetSheetId, updatedTarget, true);
+
+            // If restored to client/merchant sheet, sync accounts
+            if (targetSheetId === 'client_data' || targetSheetId === 'client_data_2' || targetSheetId === 'merchant_data') {
+                syncAccountsFromClientData(targetSheetId, updatedTarget);
+            } else if (targetSheetId === 'account_data' || targetSheetId === 'account_data_2') {
+                refreshAvailableAccounts();
+            }
 
             // Remove from trash
             const updatedTrash = records.filter(r => r.id !== recordToRestore.id);
@@ -1005,6 +1309,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             const newSelected = new Set(selectedIds);
             newSelected.delete(recordToRestore.id);
             setSelectedIds(newSelected);
+            refreshAllCounts();
 
             const destName = recordToRestore.originSheetName || sheetsList.find(s => s.id === targetSheetId)?.name || 'الشيت الأصلي';
             showToast(`تم استرداد السجل بنجاح إلى "${destName}" ✓`, 'success');
@@ -1014,15 +1319,24 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
     };
 
-    // Bulk Restore from trash
-    const handleBulkRestore = () => {
+    // Bulk Restore from trash safely
+    const handleBulkRestore = async () => {
         if (selectedIds.size === 0) return;
         try {
             const selectedRecords = records.filter(r => selectedIds.has(r.id));
             // Group by originSheetId
             const grouped = {};
             selectedRecords.forEach(rec => {
-                const destId = rec.originSheetId || 'account_data';
+                let destId = rec.originSheetId;
+                if (!destId) {
+                    if (rec.selectedAccount || rec.accountCreatedDate) {
+                        destId = 'account_data';
+                    } else if (rec.phone && !rec.email) {
+                        destId = 'customers_data';
+                    } else {
+                        destId = 'client_data';
+                    }
+                }
                 if (!grouped[destId]) grouped[destId] = [];
                 const { deletedAt, originSheetId, originSheetName, ...cleanRec } = rec;
                 cleanRec.updated_at = new Date().toISOString();
@@ -1030,24 +1344,37 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             });
 
             // Save to each origin sheet
-            Object.keys(grouped).forEach(destId => {
-                const key = `${STORAGE_PREFIX}${destId}`;
-                const raw = localStorage.getItem(key);
-                let currentDestData = [];
-                if (raw) {
-                    try {
-                        const parsed = JSON.parse(raw);
-                        if (Array.isArray(parsed)) currentDestData = parsed;
-                    } catch {}
+            for (const destId of Object.keys(grouped)) {
+                let currentDestData = await sheetsAPI.getSheetRecords(destId);
+                if (!Array.isArray(currentDestData) || currentDestData.length === 0) {
+                    const key = `${STORAGE_PREFIX}${destId}`;
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        try {
+                            const parsed = JSON.parse(raw);
+                            if (Array.isArray(parsed)) currentDestData = parsed;
+                        } catch {}
+                    }
                 }
-                const updatedDest = [...grouped[destId], ...currentDestData].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
-                sheetsAPI.saveSheetRecords(destId, updatedDest);
-            });
+                if (!Array.isArray(currentDestData)) currentDestData = [];
+
+                const idsToAdd = new Set(grouped[destId].map(r => r.id));
+                const filteredDest = currentDestData.filter(r => !idsToAdd.has(r.id));
+                const updatedDest = [...grouped[destId], ...filteredDest].map((r, i) => sanitizeRecord(r, i)).filter(Boolean);
+
+                await sheetsAPI.saveSheetRecords(destId, updatedDest, true);
+                if (destId === 'client_data' || destId === 'client_data_2' || destId === 'merchant_data') {
+                    syncAccountsFromClientData(destId, updatedDest);
+                } else if (destId === 'account_data' || destId === 'account_data_2') {
+                    refreshAvailableAccounts();
+                }
+            }
 
             // Remove all restored from trash
             const updatedTrash = records.filter(r => !selectedIds.has(r.id));
             saveRecords(updatedTrash);
             setSelectedIds(new Set());
+            refreshAllCounts();
             showToast(`تم استرداد ${selectedRecords.length} سجل بنجاح إلى شيتاتها الأصلية ✓`, 'success');
         } catch (err) {
             console.error('Error in bulk restore:', err);
@@ -1113,16 +1440,30 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     // Import full account data from "بيانات الحساب" into form
     const handleSelectAccountData = (acc) => {
         if (!acc) return;
+        if (currentSheetId === 'client_data') {
+            const usage = acc._usage;
+            if (usage?.isMaxedOut) {
+                showToast(`عذراً: هذا الحساب مستخدم بالكامل (${usage.hasFullOr2Dev ? 'شامل / جهازين' : 'جهازين'}) ولا يمكن اختياره مجدداً ❌`, 'error');
+                return;
+            }
+        }
         setFormData(prev => ({
             ...prev,
             email: acc.email || prev.email,
             password: acc.password || prev.password,
             password2: acc.password2 || prev.password2,
             selectedAccount: acc.email || acc.selectedAccount || prev.selectedAccount,
+            deviceType: acc._usage?.canAddOneDevice ? 'جهاز' : (prev.deviceType || 'جهاز'),
+            duration: prev.duration || '1 شهر',
+            startDate: prev.startDate || acc.accountCreatedDate || new Date().toISOString().slice(0, 10),
             notes: prev.notes ? (prev.notes.includes(acc.notes || '') ? prev.notes : `${prev.notes} | ${acc.notes || ''}`.trim()) : (acc.notes || '')
         }));
         setIsAccountEmailDropdownOpen(false);
-        showToast(`تم استيراد بيانات الحساب (${acc.email}) بنجاح ✓`, 'success');
+        if (acc._usage?.canAddOneDevice) {
+            showToast(`تم استيراد الحساب (${acc.email}) لجهاز ثانٍ (متبقي جهاز 2 فقط) ✓`, 'info');
+        } else {
+            showToast(`تم استيراد بيانات الحساب (${acc.email}) بنجاح ✓`, 'success');
+        }
     };
 
     // Quick toggle reminder status directly from table (متبقي X يوم للتذكير / استوفى باقي المدة)
@@ -1200,24 +1541,37 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
 
         let targetStatus = status;
+        const targetMode = status === 'auto' ? 'auto' : 'manual';
+
         if (status === 'auto') {
             const targetRec = records.find(r => r.id === id);
             const accEmail = targetRec?.email || targetRec?.name || '';
             let clientRecs = [];
             let merchantRecs = [];
-            try {
-                const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
-                if (cRaw) clientRecs = JSON.parse(cRaw);
-            } catch {}
-            try {
-                const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
-                if (mRaw) merchantRecs = JSON.parse(mRaw);
-            } catch {}
-            if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
-                try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
-            }
-            if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
-                try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+            if (currentSheetId === 'account_data_2') {
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+                if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+                    try { clientRecs = (await sheetsAPI.getSheetRecords('client_data_2')) || []; } catch {}
+                }
+                merchantRecs = [];
+            } else {
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+                try {
+                    const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                    if (mRaw) merchantRecs = JSON.parse(mRaw);
+                } catch {}
+                if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+                    try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
+                }
+                if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
+                    try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+                }
             }
             targetStatus = calculateAccountAutoStatus(accEmail, clientRecs, merchantRecs);
         }
@@ -1227,6 +1581,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 return {
                     ...r,
                     saleStatus: targetStatus,
+                    saleStatusMode: targetMode,
                     isSold: (targetStatus === 'full' || targetStatus === 'sold') ? true : (targetStatus === 'available' || targetStatus === 'unsold') ? false : null,
                     updated_at: new Date().toISOString()
                 };
@@ -1237,26 +1592,26 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
         if (status === 'auto') {
             const labelMap = {
-                available: 'متاح (غير مسجل بالعملاء/التجار) 🔴',
-                single: 'جهاز واحد (مسجل جهاز واحد فقط) 🔵',
-                double: 'جهازين (مسجل مرتين جهاز واحد) 🟣',
-                full: 'شامل / كامل (مسجل جهازين أو كامل) 🟢'
+                available: 'متاح (أحمر) 🔴',
+                single: 'جهاز واحد (أزرق) 🔵',
+                double: 'جهازين (بنفسجي) 🟣',
+                full: 'شامل / كامل (أخضر) 🟢'
             };
-            showToast(`تم التحديد تلقائياً: ${labelMap[targetStatus] || targetStatus}`, 'success');
+            showToast(`تم التفعيل: تحديد تلقائي ذكي دائماً (${labelMap[targetStatus] || targetStatus}) ✓`, 'success');
         } else if (targetStatus === 'available' || targetStatus === 'unsold') {
-            showToast('تم التحديد: متاح (تظليل أحمر) 🔴', 'info');
+            showToast('تم التثبيت اليدوي: متاح (تظليل أحمر) 🔴', 'info');
         } else if (targetStatus === 'single') {
-            showToast('تم التحديد: جهاز (تظليل أزرق) 📱', 'info');
+            showToast('تم التثبيت اليدوي: جهاز (تظليل أزرق) 📱', 'info');
         } else if (targetStatus === 'double') {
-            showToast('تم التحديد: جهازين (تظليل بنفسجي) 📱📱', 'info');
+            showToast('تم التثبيت اليدوي: جهازين (تظليل بنفسجي) 📱📱', 'info');
         } else if (targetStatus === 'full' || targetStatus === 'sold') {
-            showToast('تم التحديد: شامل (تظليل أخضر) 🟢', 'success');
+            showToast('تم التثبيت اليدوي: شامل (تظليل أخضر) 🟢', 'success');
         } else {
-            showToast('تم إلغاء التظليل وعودة السجل للوضع الطبيعي', 'info');
+            showToast('تم التثبيت اليدوي: إلغاء التظليل', 'info');
         }
     };
 
-    // Recalculate and update all accounts in account_data based on client_data & merchant_data
+    // Recalculate and update all accounts in account_data or account_data_2
     const handleAutoSyncAllAccounts = async () => {
         if (!canEdit) {
             showToast('ليس لديك صلاحية تعديل السجلات', 'warning');
@@ -1264,20 +1619,31 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         }
         let clientRecs = [];
         let merchantRecs = [];
-        try {
-            const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
-            if (cRaw) clientRecs = JSON.parse(cRaw);
-        } catch {}
-        try {
-            const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
-            if (mRaw) merchantRecs = JSON.parse(mRaw);
-        } catch {}
+        if (currentSheetId === 'account_data_2') {
+            try {
+                const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                if (cRaw) clientRecs = JSON.parse(cRaw);
+            } catch {}
+            if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+                try { clientRecs = (await sheetsAPI.getSheetRecords('client_data_2')) || []; } catch {}
+            }
+            merchantRecs = [];
+        } else {
+            try {
+                const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                if (cRaw) clientRecs = JSON.parse(cRaw);
+            } catch {}
+            try {
+                const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                if (mRaw) merchantRecs = JSON.parse(mRaw);
+            } catch {}
 
-        if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
-            try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
-        }
-        if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
-            try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+            if (!Array.isArray(clientRecs) || clientRecs.length === 0) {
+                try { clientRecs = (await sheetsAPI.getSheetRecords('client_data')) || []; } catch {}
+            }
+            if (!Array.isArray(merchantRecs) || merchantRecs.length === 0) {
+                try { merchantRecs = (await sheetsAPI.getSheetRecords('merchant_data')) || []; } catch {}
+            }
         }
 
         const { updated, updatedCount } = autoSyncAccountsStatus(records, clientRecs, merchantRecs);
@@ -1313,7 +1679,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             if (!confirmed) return;
 
             const targetRecords = records.filter(r => selectedIds.has(r.id));
-            moveToTrash(targetRecords, currentSheetId, currentSheet?.name || 'شيت');
+            await moveToTrash(targetRecords, currentSheetId, currentSheet?.name || 'شيت');
             const updated = records.filter(r => !selectedIds.has(r.id));
             saveRecords(updated);
             setSelectedIds(new Set());
@@ -1450,7 +1816,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     'الفيزا (Visa)': r.visa || '',
                     'حساب الفيزا (Visa Account)': r.visaAccount || ''
                 };
-                if (currentSheetId === 'account_data') {
+                if (isAccountSheet) {
                     const isFulfilled = r.reminderStatus === 'fulfilled';
                     const rem = calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at);
                     base['تاريخ إنشاء الحساب (Creation Date)'] = r.accountCreatedDate || '';
@@ -1617,7 +1983,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         const active = [];
 
         records.forEach(r => {
-            const rem = currentSheetId === 'account_data'
+            const rem = isAccountSheet
                 ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                 : calculateRemainingTime(r.startDate, r.duration, r.created_at);
 
@@ -1640,31 +2006,31 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         expired.sort((a, b) => (b.remInfo.days ?? 0) - (a.remInfo.days ?? 0));
 
         return { nearRenewal, expired, active };
-    }, [records, currentSheetId]);
+    }, [records, currentSheetId, isAccountSheet]);
 
     // Filter & Search (bulletproof against numbers and nulls)
     const filteredRecords = useMemo(() => {
         let result = records;
 
         // Filter by Expiry Status Tab (All, Near Renewal, Expired, Active) - only for sheets with subscription dates
-        if (currentSheetId !== 'customers_data') {
+        if (currentSheetId !== 'customers_data' && currentSheetId !== 'trash_data') {
             if (expiryFilter === 'near') {
                 result = result.filter(r => {
-                    const rem = currentSheetId === 'account_data'
+                    const rem = isAccountSheet
                         ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                         : calculateRemainingTime(r.startDate, r.duration, r.created_at);
                     return rem.days !== null && rem.days >= 0 && rem.days <= 3 && rem.status !== 'lifetime';
                 });
             } else if (expiryFilter === 'expired') {
                 result = result.filter(r => {
-                    const rem = currentSheetId === 'account_data'
+                    const rem = isAccountSheet
                         ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                         : calculateRemainingTime(r.startDate, r.duration, r.created_at);
                     return rem.days !== null && rem.days < 0;
                 });
             } else if (expiryFilter === 'active') {
                 result = result.filter(r => {
-                    const rem = currentSheetId === 'account_data'
+                    const rem = isAccountSheet
                         ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                         : calculateRemainingTime(r.startDate, r.duration, r.created_at);
                     return rem.days > 3 || rem.status === 'lifetime';
@@ -1675,7 +2041,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         if (searchTerm.trim()) {
             const q = searchTerm.toLowerCase().trim();
             result = result.filter(r => {
-                const rem = currentSheetId === 'account_data'
+                const rem = isAccountSheet
                     ? calculateAccountReminder(r.accountCreatedDate, r.reminderDays, r.created_at)
                     : calculateRemainingTime(r.startDate, r.duration, r.created_at);
                 return (
@@ -1775,6 +2141,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                 if (daysA > daysB) return sortBy.asc ? 1 : -1;
                 return 0;
             }
+            if (sortBy.field === 'saleStatus') {
+                const statusOrder = { available: 1, single: 2, double: 3, full: 4 };
+                const stA = statusOrder[getAccountSaleStatus(a)] || 0;
+                const stB = statusOrder[getAccountSaleStatus(b)] || 0;
+                if (stA !== stB) return sortBy.asc ? (stA - stB) : (stB - stA);
+                return 0;
+            }
             const valA = String(a[sortBy.field] ?? '').toLowerCase();
             const valB = String(b[sortBy.field] ?? '').toLowerCase();
 
@@ -1815,8 +2188,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const stats = useMemo(() => {
         const total = records.length;
         if (currentSheetId === 'trash_data') {
-            const accountsCount = records.filter(r => r.originSheetId === 'account_data').length;
-            const clientsCount = records.filter(r => r.originSheetId === 'client_data').length;
+            const accountsCount = records.filter(r => r.originSheetId === 'account_data' || r.originSheetId === 'account_data_2').length;
+            const clientsCount = records.filter(r => r.originSheetId === 'client_data' || r.originSheetId === 'client_data_2').length;
             const merchantsCount = records.filter(r => r.originSheetId === 'merchant_data').length;
             return {
                 total,
@@ -1994,7 +2367,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             </div>
                         </div>
                     </>
-                ) : currentSheetId === 'account_data' ? (
+                ) : isAccountSheet ? (
                     <>
                         <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
                             <div>
@@ -2072,10 +2445,10 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <div>
                             <div className="flex flex-wrap items-center gap-3">
                                 <h2 className="text-lg md:text-xl font-black text-slate-800 dark:text-white">
-                                    {isClientGroup ? 'بيانات العميل' : currentSheet.name}
+                                    {currentSheet.name}
                                 </h2>
 
-                                {isClientGroup && (
+                                {(currentSheetId === 'client_data' || currentSheetId === 'account_data') && (
                                     <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner gap-1">
                                         <button
                                             onClick={() => setActiveSheetId('client_data')}
@@ -2084,10 +2457,10 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     ? 'bg-blue-600 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="البيانات المسجلة في بيانات الحساب"
+                                            title="عملاء أدوبي مسجل"
                                         >
-                                            <i className="fa-solid fa-circle-check text-[11px]"></i>
-                                            <span>ادوبي مسجل</span>
+                                            <i className="fa-solid fa-users text-[11px]"></i>
+                                            <span>بيانات العميل</span>
                                             <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                                                 currentSheetId === 'client_data' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                                             }`}>
@@ -2096,13 +2469,35 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </button>
 
                                         <button
+                                            onClick={() => setActiveSheetId('account_data')}
+                                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                                                currentSheetId === 'account_data'
+                                                    ? 'bg-purple-600 text-white shadow-md scale-[1.02]'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                            }`}
+                                            title="حسابات أدوبي مسجل"
+                                        >
+                                            <i className="fa-solid fa-user-gear text-[11px]"></i>
+                                            <span>بيانات الحساب</span>
+                                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                                currentSheetId === 'account_data' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }`}>
+                                                {allSheetsCounts['account_data'] || 0}
+                                            </span>
+                                        </button>
+                                    </div>
+                                )}
+
+                                {(currentSheetId === 'client_data_2' || currentSheetId === 'account_data_2') && (
+                                    <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner gap-1">
+                                        <button
                                             onClick={() => setActiveSheetId('client_data_2')}
                                             className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                                                 currentSheetId === 'client_data_2'
                                                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="البيانات غير المسجلة في بيانات الحساب"
+                                            title="عملاء أدوبي غير مسجل"
                                         >
                                             <i className="fa-solid fa-clock-rotate-left text-[11px]"></i>
                                             <span>ادوبي غير مسجل</span>
@@ -2112,8 +2507,27 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 {allSheetsCounts['client_data_2'] || 0}
                                             </span>
                                         </button>
+
+                                        <button
+                                            onClick={() => setActiveSheetId('account_data_2')}
+                                            className={`px-3 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer select-none ${
+                                                currentSheetId === 'account_data_2'
+                                                    ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md scale-[1.02]'
+                                                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                                            }`}
+                                            title="قاعدة بيانات حسابات خاصة بأدوبي غير مسجل"
+                                        >
+                                            <i className="fa-solid fa-shield-halved text-[11px]"></i>
+                                            <span>بيانات الحساب 2</span>
+                                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                                currentSheetId === 'account_data_2' ? 'bg-white/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                            }`}>
+                                                {allSheetsCounts['account_data_2'] || 0}
+                                            </span>
+                                        </button>
                                     </div>
                                 )}
+
                                 {canCustomize && (
                                     <button
                                         onClick={() => {
@@ -2132,14 +2546,16 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     ? 'سلة المهملات: استعراض الحسابات والبيانات المحذوفة مع إمكانية استردادها للشيت الأصلي أو حذفها نهائياً'
                                     : isCustomersSheet
                                     ? 'إدارة وحفظ بيانات العملاء وأرقام الهواتف ونوع الاشتراك والتواصل السريع'
-                                    : isClientGroup
-                                    ? (currentSheetId === 'client_data'
-                                        ? 'بيانات العميل: إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
-                                        : 'بيانات العميل 2: إدارة وحفظ بيانات عملاء الخدمة غير المسجلين في بيانات الحساب محلياً')
+                                    : currentSheetId === 'client_data'
+                                    ? 'بيانات العميل (أدوبي مسجل): إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
+                                    : currentSheetId === 'client_data_2'
+                                    ? 'ادوبي غير مسجل: إدارة وحفظ بيانات عملاء الخدمة المرتبطة بقاعدة بيانات الحساب 2'
+                                    : currentSheetId === 'account_data_2'
+                                    ? 'بيانات الحساب 2: قاعدة بيانات حسابات خاصة ومستقلة لعملاء أدوبي غير مسجل'
+                                    : currentSheetId === 'account_data'
+                                    ? 'بيانات الحساب: إدارة وحفظ بيانات الحسابات وتاريخ الإنشاء وفترة التذكير محلياً'
                                     : isClientOrMerchant
                                     ? 'إدارة وحفظ بيانات الإيميل والباسورد الأول والثاني ومدة الاشتراك محلياً'
-                                    : currentSheetId === 'account_data'
-                                    ? 'إدارة وحفظ بيانات الحسابات وتاريخ الإنشاء وفترة التذكير محلياً'
                                     : 'إدارة وحفظ البيانات محلياً'}
                             </p>
                         </div>
@@ -2148,18 +2564,40 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     {/* Action Buttons */}
                     <div className="flex flex-wrap items-center gap-2">
                         {isTrashSheet ? (
-                            <>
+                            <div className="flex flex-wrap items-center gap-2">
+                                {selectedIds.size > 0 && (
+                                    <>
+                                        <button
+                                            onClick={handleBulkRestore}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-sm transition transform active:scale-95 cursor-pointer"
+                                            title="استرداد جميع السجلات المحددة إلى شيتاتها الأصلية"
+                                        >
+                                            <i className="fa-solid fa-rotate-left"></i>
+                                            <span>استرداد المحدد ({selectedIds.size})</span>
+                                        </button>
+                                        {canEmptyTrash && (
+                                            <button
+                                                onClick={handleBulkDelete}
+                                                className="bg-red-600 hover:bg-red-700 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-sm transition transform active:scale-95 cursor-pointer"
+                                                title="حذف السجلات المحددة نهائياً"
+                                            >
+                                                <i className="fa-solid fa-trash"></i>
+                                                <span>حذف نهائي للمحدد ({selectedIds.size})</span>
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                                 {records.length > 0 && canEmptyTrash && (
                                     <button
                                         onClick={handleEmptyTrash}
                                         className="bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:text-rose-300 border border-rose-200/80 dark:border-rose-800/60 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition transform active:scale-95 cursor-pointer"
                                         title="حذف جميع السجلات في سلة المهملات نهائياً"
                                     >
-                                        <i className="fa-solid fa-trash-can"></i>
-                                        <span>إفراغ سلة المهملات</span>
+                                        <i className="fa-solid fa-dumpster-fire"></i>
+                                        <span>إفراغ سلة المهملات بالكامل</span>
                                     </button>
                                 )}
-                            </>
+                            </div>
                         ) : (
                             /* Add Single Record */
                             canAdd && (
@@ -2195,13 +2633,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             )
                         )}
 
-                        {/* Auto Sync All Accounts Status (Only in account_data) */}
-                        {currentSheetId === 'account_data' && canEdit && (
+                        {/* Auto Sync All Accounts Status (For account_data & account_data_2) */}
+                        {isAccountSheet && canEdit && (
                             <button
                                 type="button"
                                 onClick={handleAutoSyncAllAccounts}
                                 className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition transform active:scale-95 cursor-pointer"
-                                title="تحديد تلقائي لحالة جميع الحسابات بناءً على ما هو مسجل في بيانات العميل وبيانات التاجر"
+                                title={currentSheetId === 'account_data_2' ? "تحديد تلقائي لحالة جميع الحسابات بناءً على ما هو مسجل في ادوبي غير مسجل" : "تحديد تلقائي لحالة جميع الحسابات بناءً على ما هو مسجل في بيانات العميل وبيانات التاجر"}
                             >
                                 <i className="fa-solid fa-wand-magic-sparkles text-indigo-600 dark:text-indigo-400"></i>
                                 <span>تحديد تلقائي للحالة</span>
@@ -2226,7 +2664,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     ? "بحث في الإيميل، اسم التاجر، مدة الاشتراك..."
                                     : currentSheetId === 'client_data' || currentSheetId === 'client_data_2'
                                     ? "بحث في الإيميل، الخدمة، مدة الاشتراك..."
-                                    : currentSheetId === 'account_data'
+                                    : isAccountSheet
                                     ? "بحث في الإيميل، الباسورد، تاريخ الإنشاء، التذكير، الملاحظات..."
                                     : "بحث في الإيميل، الباسورد، الفاتورة، الفيزا، الملاحظات..."
                             }
@@ -2303,20 +2741,39 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                         <thead>
                             <tr className="bg-slate-50/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-700/80 font-bold select-none">
                                 <th
-                                    onClick={() => setSortBy(prev => ({
-                                        field: 'created_at',
-                                        asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
-                                    }))}
-                                    className="px-1 py-1 min-w-[36px] text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group"
-                                    title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
+                                    className="px-1 py-1 min-w-[36px] text-center select-none"
                                 >
-                                    <div className="flex items-center justify-center gap-0.5">
-                                        <span className="font-bold text-[10.5px]">#</span>
-                                        <i className={`fa-solid text-[8px] transition-colors ${
-                                            (sortBy.field === 'created_at' || sortBy.field === 'email')
-                                                ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
-                                                : 'fa-sort text-slate-400 group-hover:text-indigo-500'
-                                        }`}></i>
+                                    <div className="flex items-center justify-center gap-1">
+                                        {isTrashSheet && filteredRecords.length > 0 && (
+                                            <input
+                                                type="checkbox"
+                                                checked={filteredRecords.length > 0 && selectedIds.size === filteredRecords.length}
+                                                onChange={handleSelectAll}
+                                                className="w-3.5 h-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                                title="تحديد كل سجلات المهملات"
+                                            />
+                                        )}
+                                        <span
+                                            onClick={() => setSortBy(prev => ({
+                                                field: 'created_at',
+                                                asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                                            }))}
+                                            className="font-bold text-[10.5px] cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                                            title={(sortBy.field === 'created_at' || sortBy.field === 'email') ? (sortBy.asc ? 'الترتيب: من الأقدم للأحدث (انقر للتبديل للأحدث)' : 'الترتيب: من الأحدث للأقدم (انقر للتبديل للأقدم)') : 'ترتيب السجلات: انقر للتبديل بين الأقدم والأحدث'}
+                                        >
+                                            #
+                                        </span>
+                                        <i
+                                            onClick={() => setSortBy(prev => ({
+                                                field: 'created_at',
+                                                asc: (prev.field === 'created_at' || prev.field === 'email') ? !prev.asc : true
+                                            }))}
+                                            className={`fa-solid text-[8px] cursor-pointer transition-colors ${
+                                                (sortBy.field === 'created_at' || sortBy.field === 'email')
+                                                    ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                    : 'fa-sort text-slate-400 hover:text-indigo-500'
+                                            }`}
+                                        ></i>
                                     </div>
                                 </th>
                                 {isCustomersSheet ? (
@@ -2476,7 +2933,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             </div>
                                         </th>
                                     </>
-                                ) : currentSheetId === 'account_data' ? (
+                                ) : isAccountSheet ? (
                                     <>
                                         <th
                                             onClick={() => setSortBy({ field: 'accountCreatedDate', asc: sortBy.field === 'accountCreatedDate' ? !sortBy.asc : true })}
@@ -2523,14 +2980,27 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                 )}
                                     </>
                                 )}
-                                 <th className={`px-1 py-1.5 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80`}>إجراءات</th>
+                                <th
+                                    onClick={() => setSortBy(prev => ({ field: 'saleStatus', asc: prev.field === 'saleStatus' ? !prev.asc : true }))}
+                                    className={`px-1 py-1.5 text-center cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition select-none group ${isAccountSheet ? 'min-w-[115px]' : 'min-w-[56px]'} text-[10.5px] sticky left-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r border-slate-200/80 dark:border-slate-700/80`}
+                                    title="ترتيب السجلات حسب الإجراءات وحالة الحساب"
+                                >
+                                    <div className="flex items-center justify-center gap-1">
+                                        <span>إجراءات</span>
+                                        <i className={`fa-solid text-[8px] transition-colors ${
+                                            sortBy.field === 'saleStatus'
+                                                ? (sortBy.asc ? 'fa-arrow-up-wide-short text-indigo-600 dark:text-indigo-400 font-bold' : 'fa-arrow-down-wide-short text-indigo-600 dark:text-indigo-400 font-bold')
+                                                : 'fa-sort text-slate-400 group-hover:text-indigo-500'
+                                        }`}></i>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
 
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-slate-700 dark:text-slate-300">
                             {paginatedRecords.length === 0 ? (
                                 <tr>
-                                    <td colSpan={isCustomersSheet ? 7 : isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (currentSheetId === 'account_data' ? 7 : 9)))} className="p-12 text-center text-slate-400">
+                                    <td colSpan={isCustomersSheet ? 7 : isTrashSheet ? 8 : (currentSheetId === 'merchant_data' ? 9 : (isClientOrMerchant ? 10 : (isAccountSheet ? 7 : 9)))} className="p-12 text-center text-slate-400">
                                         <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-2xl">
                                             <i className={`fa-solid ${isTrashSheet ? 'fa-trash-can text-rose-400' : 'fa-folder-open'}`}></i>
                                         </div>
@@ -2551,7 +3021,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     const isPass2Visible = visibleSecrets[`${rec.id}_pass2`];
                                     const isVisaVisible = visibleSecrets[`${rec.id}_visa`];
 
-                                    const isAccountSheet = currentSheetId === 'account_data';
+                                    const isAccountSheet = currentSheetId === 'account_data' || currentSheetId === 'account_data_2';
                                     const isClientOrMerchantSheet = currentSheetId === 'client_data' || currentSheetId === 'client_data_2' || currentSheetId === 'merchant_data';
 
                                     const accStatus = isAccountSheet ? getAccountSaleStatus(rec) : null;
@@ -2599,7 +3069,19 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         >
                                             {/* Row # */}
                                             <td className="px-1 py-1 text-center font-mono text-slate-400 text-[10px]">
-                                                {rowNum}
+                                                {isTrashSheet ? (
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.has(rec.id)}
+                                                            onChange={() => toggleSelectRow(rec.id)}
+                                                            className="w-3.5 h-3.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                                        />
+                                                        <span>{rowNum}</span>
+                                                    </div>
+                                                ) : (
+                                                    rowNum
+                                                )}
                                             </td>
 
                                             {isCustomersSheet ? (
@@ -2713,6 +3195,24 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             <i className={`fa-solid ${copiedField === `em_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                         </button>
                                                     </div>
+                                                ) : isTrashSheet && (rec.name || rec.phone) ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="w-5 h-5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                                                            <i className="fa-solid fa-user"></i>
+                                                        </div>
+                                                        <span className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                                                            {rec.name || rec.phone}
+                                                        </span>
+                                                        {rec.name && (
+                                                            <button
+                                                                onClick={() => handleCopy(rec.name, `nm_${rec.id}`)}
+                                                                className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-0.5 transition"
+                                                                title="نسخ الاسم"
+                                                            >
+                                                                <i className={`fa-solid ${copiedField === `nm_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span className="text-slate-300 dark:text-slate-600">-</span>
                                                 )}
@@ -2740,6 +3240,32 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             <i className={`fa-solid ${copiedField === `p1_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                         </button>
                                                     </div>
+                                                ) : isTrashSheet && rec.phone ? (
+                                                    <div className="flex items-center gap-1 dir-ltr justify-end">
+                                                        <span className="font-mono text-slate-800 dark:text-slate-200 select-all text-xs font-bold">
+                                                            {rec.phone}
+                                                        </span>
+                                                        <button
+                                                            onClick={() => handleCopy(rec.phone, `ph_${rec.id}`)}
+                                                            className="text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 p-1 transition"
+                                                            title="نسخ رقم التليفون"
+                                                        >
+                                                            <i className={`fa-solid ${copiedField === `ph_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[10px]`}></i>
+                                                        </button>
+                                                        <a
+                                                            href={`https://wa.me/${rec.phone.replace(/[^0-9]/g, '')}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="w-5 h-5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center transition"
+                                                            title="محادثة واتساب مباشرة"
+                                                        >
+                                                            <i className="fa-brands fa-whatsapp text-[10px]"></i>
+                                                        </a>
+                                                    </div>
+                                                ) : isTrashSheet && rec.serviceType ? (
+                                                    <span className="text-[11px] text-slate-700 dark:text-slate-300 font-medium">
+                                                        {rec.serviceType}
+                                                    </span>
                                                 ) : (
                                                     <span className="text-slate-300 dark:text-slate-600">-</span>
                                                 )}
@@ -2767,6 +3293,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                             <i className={`fa-solid ${copiedField === `p2_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                         </button>
                                                     </div>
+                                                ) : isTrashSheet && (rec.deviceType || rec.duration) ? (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                                        <i className="fa-solid fa-tag text-[8px]"></i>
+                                                        <span>{rec.deviceType || rec.duration}</span>
+                                                    </span>
                                                 ) : (
                                                     <span className="text-slate-300 dark:text-slate-600">-</span>
                                                 )}
@@ -2784,6 +3315,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 client_data_2: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/70 dark:border-amber-800/60',
                                                                 merchant_data: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/70 dark:border-emerald-800/60',
                                                                 account_data: 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/70 dark:border-purple-800/60',
+                                                                account_data_2: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200/70 dark:border-teal-800/60',
                                                             }[originId] || 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200';
 
                                                             const originIcon = {
@@ -2791,6 +3323,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                 client_data_2: 'fa-solid fa-user-tie text-amber-500',
                                                                 merchant_data: 'fa-solid fa-store text-emerald-500',
                                                                 account_data: 'fa-solid fa-user-gear text-purple-500',
+                                                                account_data_2: 'fa-solid fa-shield-halved text-teal-500',
                                                             }[originId] || 'fa-solid fa-file text-slate-400';
 
                                                             const name = rec.originSheetName || sheetsList.find(s => s.id === originId)?.name || 'بيانات الحساب';
@@ -2832,6 +3365,10 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     <i className={`fa-solid ${copiedField === `acc_tr_${rec.id}` ? 'fa-check text-emerald-500' : 'fa-copy'} text-[8px]`}></i>
                                                                 </button>
                                                             </div>
+                                                        ) : rec.notes ? (
+                                                            <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[150px] block" title={rec.notes}>
+                                                                {rec.notes}
+                                                            </span>
                                                         ) : (
                                                             <span className="text-slate-300 dark:text-slate-600 font-mono text-xs">-</span>
                                                         )}
@@ -2991,7 +3528,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         )}
                                                     </td>
                                                 </>
-                                            ) : currentSheetId === 'account_data' ? (
+                                            ) : isAccountSheet ? (
                                                 <>
                                                     {/* Account Creation Date */}
                                                     <td className="px-1.5 py-1 font-medium">
@@ -3204,7 +3741,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                             )}
 
                                             {/* Actions */}
-                                            <td className={`px-1 py-1 text-center ${currentSheetId === 'account_data' ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isPurple ? 'border-purple-200/80 dark:border-purple-800/80' : isBlue ? 'border-blue-200/80 dark:border-blue-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
+                                            <td className={`px-1 py-1 text-center ${isAccountSheet ? 'min-w-[115px]' : 'min-w-[56px]'} sticky left-0 z-10 ${stickyActionBgClass} shadow-[-3px_0_6px_rgba(0,0,0,0.06)] border-r ${isGreen ? 'border-emerald-200/80 dark:border-emerald-800/80' : isPurple ? 'border-purple-200/80 dark:border-purple-800/80' : isBlue ? 'border-blue-200/80 dark:border-blue-800/80' : isRed ? 'border-rose-200/80 dark:border-rose-800/80' : 'border-slate-100 dark:border-slate-800'}`}>
                                                 {isTrashSheet ? (
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
@@ -3228,7 +3765,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 ) : (
                                                     <div className="flex items-center justify-center gap-1">
                                                         {/* زر حالة البيع والتظليل: خاص ببيانات الحساب فقط بين النسخ والتعديل */}
-                                                        {currentSheetId === 'account_data' && (
+                                                        {isAccountSheet && (
                                                             <button
                                                                 type="button"
                                                                 onClick={(e) => {
@@ -3236,11 +3773,12 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     setSaleMenuAnchor(prev => (prev?.id === rec.id ? null : {
                                                                         id: rec.id,
                                                                         saleStatus: getAccountSaleStatus(rec),
+                                                                        saleStatusMode: rec.saleStatusMode || 'auto',
                                                                         isSold: rec.isSold,
                                                                         recordEmail: rec.email || rec.name || ''
                                                                     }));
                                                                 }}
-                                                                title="تحديد حالة الحساب (متاح / جهاز / جهازين / شامل)"
+                                                                title={rec.saleStatusMode === 'manual' ? 'حالة الحساب (تثبيت يدوي) - انقر للتعديل' : 'حالة الحساب (تحديد تلقائي ذكي ⚡) - انقر للتعديل'}
                                                                 className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap shadow-xs ${
                                                                     isFull
                                                                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
@@ -3257,30 +3795,34 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                     <>
                                                                         <i className="fa-solid fa-check text-[7.5px]"></i>
                                                                         <span>شامل</span>
+                                                                        {rec.saleStatusMode !== 'manual' && <span className="text-[7.5px] opacity-80" title="تحديد تلقائي ذكي">⚡</span>}
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 ) : isDouble ? (
                                                                     <>
                                                                         <i className="fa-solid fa-tablets text-[7.5px]"></i>
                                                                         <span>جهازين</span>
+                                                                        {rec.saleStatusMode !== 'manual' && <span className="text-[7.5px] opacity-80" title="تحديد تلقائي ذكي">⚡</span>}
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 ) : isSingle ? (
                                                                     <>
                                                                         <i className="fa-solid fa-mobile-screen text-[7.5px]"></i>
                                                                         <span>جهاز</span>
+                                                                        {rec.saleStatusMode !== 'manual' && <span className="text-[7.5px] opacity-80" title="تحديد تلقائي ذكي">⚡</span>}
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 ) : isAvailable ? (
                                                                     <>
                                                                         <i className="fa-solid fa-xmark text-[7.5px]"></i>
                                                                         <span>متاح</span>
+                                                                        {rec.saleStatusMode !== 'manual' && <span className="text-[7.5px] opacity-80" title="تحديد تلقائي ذكي">⚡</span>}
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 ) : (
                                                                     <>
-                                                                        <i className="fa-solid fa-tag text-[7.5px]"></i>
-                                                                        <span>الحالة</span>
+                                                                        <i className="fa-solid fa-wand-magic-sparkles text-[7.5px]"></i>
+                                                                        <span>تلقائي</span>
                                                                         <i className="fa-solid fa-caret-down text-[7px] opacity-75"></i>
                                                                     </>
                                                                 )}
@@ -3629,49 +4171,65 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     return filtered.map(acc => {
                                                         const isCurrent = formData.email && acc.email && formData.email.toLowerCase() === acc.email.toLowerCase();
                                                         const accStatus = getAccountSaleStatus(acc);
-                                                        const isSold = accStatus === 'full';
+                                                        const usage = acc._usage || {};
+                                                        const isMaxedOut = currentSheetId === 'client_data' && (usage.isMaxedOut || accStatus === 'full' || accStatus === 'double');
+                                                        const canAddOneDevice = currentSheetId === 'client_data' && !isMaxedOut && (usage.canAddOneDevice || accStatus === 'single');
+
                                                         return (
                                                             <button
                                                                 key={acc.id}
                                                                 type="button"
                                                                 onClick={() => handleSelectAccountData(acc)}
-                                                                className={`w-full p-3 text-right flex items-center justify-between gap-3 transition cursor-pointer select-none ${
-                                                                    isCurrent
-                                                                        ? 'bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200'
-                                                                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
+                                                                className={`w-full p-3 text-right flex items-center justify-between gap-3 transition select-none ${
+                                                                    isMaxedOut
+                                                                        ? 'bg-rose-50/40 dark:bg-rose-950/20 border-r-4 border-r-rose-500 opacity-80 cursor-not-allowed hover:bg-rose-100/50'
+                                                                        : isCurrent
+                                                                            ? 'bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 cursor-pointer'
+                                                                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200 cursor-pointer'
                                                                 }`}
                                                             >
                                                                 {/* Import Action badge */}
                                                                 <div className="flex items-center gap-1.5 flex-shrink-0">
-                                                                    <span className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 shadow-xs">
-                                                                        <i className="fa-solid fa-download text-[9px]"></i>
-                                                                        <span>استيراد</span>
-                                                                    </span>
+                                                                    {isMaxedOut ? (
+                                                                        <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 px-2 py-1 rounded-lg text-[10.5px] font-black flex items-center gap-1">
+                                                                            <i className="fa-solid fa-ban text-xs text-rose-500"></i>
+                                                                            <span>غير متاح</span>
+                                                                        </span>
+                                                                    ) : canAddOneDevice ? (
+                                                                        <span className="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 shadow-xs">
+                                                                            <i className="fa-solid fa-mobile-screen text-[9px]"></i>
+                                                                            <span>استيراد (جهاز 2)</span>
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1 rounded-lg text-[10.5px] font-bold flex items-center gap-1 shadow-xs">
+                                                                            <i className="fa-solid fa-download text-[9px]"></i>
+                                                                            <span>استيراد</span>
+                                                                        </span>
+                                                                    )}
                                                                 </div>
 
                                                                 {/* Account Details Preview */}
                                                                 <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                                                                         <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 truncate dir-ltr text-right block select-all">
                                                                             {acc.email}
                                                                         </span>
-                                                                        {accStatus === 'full' ? (
-                                                                            <span className="px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
-                                                                                شامل (أخضر)
+                                                                        {isMaxedOut ? (
+                                                                            <span className="px-2 py-0.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[9.5px] font-black flex items-center gap-1 border border-rose-300 dark:border-rose-800">
+                                                                                <i className="fa-solid fa-circle-xmark text-rose-500"></i>
+                                                                                <span>غير متاح (مستخدم بالكامل)</span>
                                                                             </span>
-                                                                        ) : accStatus === 'double' ? (
-                                                                            <span className="px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 text-[9px] font-bold">
-                                                                                جهازين (بنفسجي)
+                                                                        ) : canAddOneDevice ? (
+                                                                            <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 text-[9.5px] font-bold flex items-center gap-1 border border-amber-300 dark:border-amber-800">
+                                                                                <i className="fa-solid fa-mobile-screen text-amber-600"></i>
+                                                                                <span>متاح لجهاز 2 فقط (مسجل 1)</span>
                                                                             </span>
-                                                                        ) : accStatus === 'single' ? (
-                                                                            <span className="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 text-[9px] font-bold">
-                                                                                جهاز (أزرق)
+                                                                        ) : (
+                                                                            <span className="px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 text-[9.5px] font-bold flex items-center gap-1 border border-emerald-300 dark:border-emerald-800">
+                                                                                <i className="fa-solid fa-circle-check text-emerald-500"></i>
+                                                                                <span>متاح بالكامل (جديد)</span>
                                                                             </span>
-                                                                        ) : accStatus === 'available' ? (
-                                                                            <span className="px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 text-[9px] font-bold">
-                                                                                متاح (أحمر)
-                                                                            </span>
-                                                                        ) : null}
+                                                                        )}
                                                                     </div>
                                                                     <div className="flex items-center gap-3 text-[10.5px] text-slate-400 font-mono">
                                                                         {acc.password && (
@@ -3977,38 +4535,102 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     </div>
                                 </div>
 
-                                {/* نوع الاشتراك: جهاز ولا جهازين (خاص ببيانات العميل فقط) */}
+                                {/* نوع الاشتراك: جهاز، جهازين، شامل (خاص ببيانات العميل فقط) */}
                                 {currentSheetId !== 'merchant_data' && (
                                     <div className="space-y-1.5 pt-1">
-                                        <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                                            نوع الاشتراك
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                                                نوع الاشتراك / الأجهزة
+                                            </label>
+                                            {(() => {
+                                                const em = (formData.selectedAccount || formData.email || '').trim().toLowerCase();
+                                                const matchedAcc = availableAccounts.find(a => (a.email || '').trim().toLowerCase() === em);
+                                                if (matchedAcc?._usage?.canAddOneDevice) {
+                                                    return (
+                                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                                                            ⚠️ متبقي جهاز 2 فقط لهذا الحساب
+                                                        </span>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2.5">
+                                            {/* خيار 1: جهاز */}
                                             <button
                                                 type="button"
                                                 onClick={() => setFormData({ ...formData, deviceType: 'جهاز' })}
-                                                className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
+                                                className={`py-2 px-3 rounded-2xl border-2 text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition select-none cursor-pointer ${
                                                     formData.deviceType === 'جهاز' || !formData.deviceType
                                                         ? 'border-blue-500 bg-blue-500/10 text-blue-600 dark:text-blue-400 shadow-sm ring-2 ring-blue-500/20'
                                                         : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
                                                 }`}
                                             >
                                                 <i className="fa-solid fa-mobile-screen text-base text-blue-500"></i>
-                                                <span className="text-sm">جهاز</span>
+                                                <span className="text-xs font-black">جهاز</span>
                                             </button>
 
-                                            <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, deviceType: 'جهازين' })}
-                                                className={`py-2.5 px-4 rounded-2xl border-2 text-xs font-bold flex items-center justify-center gap-2.5 transition select-none cursor-pointer ${
-                                                    formData.deviceType === 'جهازين'
-                                                        ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20'
-                                                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850'
-                                                }`}
-                                            >
-                                                <i className="fa-solid fa-laptop text-base text-purple-500"></i>
-                                                <span className="text-sm">جهازين</span>
-                                            </button>
+                                            {/* خيار 2: جهازين */}
+                                            {(() => {
+                                                const em = (formData.selectedAccount || formData.email || '').trim().toLowerCase();
+                                                const matchedAcc = availableAccounts.find(a => (a.email || '').trim().toLowerCase() === em);
+                                                const isBlocked = matchedAcc?._usage?.canAddOneDevice;
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isBlocked}
+                                                        onClick={() => {
+                                                            if (isBlocked) {
+                                                                showToast('هذا الحساب مسجل عليه جهاز 1 مسبقاً، لذا يقبل (جهاز) إضافي واحد فقط وليس جهازين ❌', 'warning');
+                                                                return;
+                                                            }
+                                                            setFormData({ ...formData, deviceType: 'جهازين' });
+                                                        }}
+                                                        className={`py-2 px-3 rounded-2xl border-2 text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition select-none ${
+                                                            isBlocked
+                                                                ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                                                                : formData.deviceType === 'جهازين'
+                                                                    ? 'border-purple-500 bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm ring-2 ring-purple-500/20 cursor-pointer'
+                                                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850 cursor-pointer'
+                                                        }`}
+                                                        title={isBlocked ? 'غير متاح لأن الحساب مسجل عليه جهاز 1 بالفعل' : 'اشتراك جهازين'}
+                                                    >
+                                                        <i className="fa-solid fa-laptop text-base text-purple-500"></i>
+                                                        <span className="text-xs font-black">جهازين</span>
+                                                    </button>
+                                                );
+                                            })()}
+
+                                            {/* خيار 3: شامل */}
+                                            {(() => {
+                                                const em = (formData.selectedAccount || formData.email || '').trim().toLowerCase();
+                                                const matchedAcc = availableAccounts.find(a => (a.email || '').trim().toLowerCase() === em);
+                                                const isBlocked = matchedAcc?._usage?.canAddOneDevice;
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isBlocked}
+                                                        onClick={() => {
+                                                            if (isBlocked) {
+                                                                showToast('هذا الحساب مسجل عليه جهاز 1 مسبقاً، لذا يقبل (جهاز) إضافي واحد فقط وليس شامل ❌', 'warning');
+                                                                return;
+                                                            }
+                                                            setFormData({ ...formData, deviceType: 'شامل' });
+                                                        }}
+                                                        className={`py-2 px-3 rounded-2xl border-2 text-xs font-bold flex flex-col items-center justify-center gap-1.5 transition select-none ${
+                                                            isBlocked
+                                                                ? 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400'
+                                                                : formData.deviceType === 'شامل'
+                                                                    ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm ring-2 ring-emerald-500/20 cursor-pointer'
+                                                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-850 cursor-pointer'
+                                                        }`}
+                                                        title={isBlocked ? 'غير متاح لأن الحساب مسجل عليه جهاز 1 بالفعل' : 'اشتراك شامل كامل'}
+                                                    >
+                                                        <i className="fa-solid fa-shield-halved text-base text-emerald-500"></i>
+                                                        <span className="text-xs font-black">شامل</span>
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 )}
@@ -4050,7 +4672,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             )}
 
                             {/* Specifically for Account Data Sheet: Account Creation Date & Reminder Period */}
-                            {currentSheetId === 'account_data' && (
+                            {isAccountSheet && (
                                 <div className="p-3.5 bg-purple-50/60 dark:bg-purple-950/30 rounded-2xl border border-purple-200/70 dark:border-purple-800/50 space-y-3">
                                     <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-bold text-xs">
                                         <i className="fa-solid fa-clock-rotate-left text-sm"></i>
@@ -4242,75 +4864,98 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             )}
 
                             {/* حالة البيع والتظليل: خاص ببيانات الحساب فقط */}
-                            {currentSheetId === 'account_data' && (
-                                <div className="space-y-1.5">
+                            {isAccountSheet && (
+                                <div className="space-y-2">
                                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                                         حالة الحساب والتظليل في الجدول
                                     </label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                                    
+                                    {/* زر التحديد التلقائي الذكي الأساسي */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, saleStatusMode: 'auto', saleStatus: '' })}
+                                        className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-between cursor-pointer ${
+                                            formData.saleStatusMode !== 'manual'
+                                                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-500 shadow-md shadow-indigo-600/25 ring-2 ring-indigo-500/50'
+                                                : 'bg-indigo-50/60 dark:bg-indigo-950/30 text-indigo-900 dark:text-indigo-200 border-indigo-200/80 dark:border-indigo-800/60 hover:bg-indigo-100'
+                                        }`}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <i className={`fa-solid fa-wand-magic-sparkles text-xs ${formData.saleStatusMode !== 'manual' ? 'text-yellow-300' : 'text-indigo-600'}`}></i>
+                                            <span>تحديد تلقائي ذكي (مستحسن دائماً)</span>
+                                        </span>
+                                        <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
+                                            formData.saleStatusMode !== 'manual' ? 'bg-white/25 text-white' : 'bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200'
+                                        }`}>
+                                            {formData.saleStatusMode !== 'manual' ? 'الوضع النشط ✓' : 'حسب الشيتات ⚡'}
+                                        </span>
+                                    </button>
+
+                                    {/* خيارات التثبيت اليدوي */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-0.5">
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'available' })}
-                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'available' || formData.saleStatus === 'unsold'
-                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
-                                                    : 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
+                                            onClick={() => setFormData({ ...formData, saleStatusMode: 'manual', saleStatus: 'available' })}
+                                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatusMode === 'manual' && (formData.saleStatus === 'available' || formData.saleStatus === 'unsold')
+                                                    ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20 ring-1 ring-rose-500'
+                                                    : 'bg-rose-50/60 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/60 hover:bg-rose-100'
                                             }`}
                                         >
                                             <i className="fa-solid fa-circle-xmark text-xs"></i>
-                                            <span>متاح (أحمر)</span>
+                                            <span>متاح</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'single' })}
-                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'single'
-                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20'
-                                                    : 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
+                                            onClick={() => setFormData({ ...formData, saleStatusMode: 'manual', saleStatus: 'single' })}
+                                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatusMode === 'manual' && formData.saleStatus === 'single'
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-1 ring-blue-500'
+                                                    : 'bg-blue-50/60 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/60 hover:bg-blue-100'
                                             }`}
                                         >
                                             <i className="fa-solid fa-mobile-screen text-xs"></i>
-                                            <span>جهاز (أزرق)</span>
+                                            <span>جهاز</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'double' })}
-                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'double'
-                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20'
-                                                    : 'bg-purple-50 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 hover:bg-purple-100'
+                                            onClick={() => setFormData({ ...formData, saleStatusMode: 'manual', saleStatus: 'double' })}
+                                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatusMode === 'manual' && formData.saleStatus === 'double'
+                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-1 ring-purple-500'
+                                                    : 'bg-purple-50/60 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 hover:bg-purple-100'
                                             }`}
                                         >
                                             <i className="fa-solid fa-tablets text-xs"></i>
-                                            <span>جهازين (بنفسجي)</span>
+                                            <span>جهازين</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: 'full' })}
-                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                formData.saleStatus === 'full' || formData.saleStatus === 'sold'
-                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
-                                                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
+                                            onClick={() => setFormData({ ...formData, saleStatusMode: 'manual', saleStatus: 'full' })}
+                                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatusMode === 'manual' && (formData.saleStatus === 'full' || formData.saleStatus === 'sold')
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20 ring-1 ring-emerald-500'
+                                                    : 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 hover:bg-emerald-100'
                                             }`}
                                         >
                                             <i className="fa-solid fa-circle-check text-xs"></i>
-                                            <span>شامل (أخضر)</span>
+                                            <span>شامل</span>
                                         </button>
 
                                         <button
                                             type="button"
-                                            onClick={() => setFormData({ ...formData, saleStatus: '' })}
-                                            className={`px-2.5 py-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                                                !formData.saleStatus
+                                            onClick={() => setFormData({ ...formData, saleStatusMode: 'manual', saleStatus: '' })}
+                                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                                                formData.saleStatusMode === 'manual' && !formData.saleStatus
                                                     ? 'bg-slate-200 dark:bg-slate-700 border-slate-400 dark:border-slate-500 text-slate-800 dark:text-white shadow-xs'
                                                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-750'
                                             }`}
                                         >
                                             <i className="fa-solid fa-minus text-[10px]"></i>
-                                            <span>بدون تظليل</span>
+                                            <span>عادي</span>
                                         </button>
                                     </div>
                                 </div>
@@ -4812,7 +5457,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             )}
 
             {/* Sale Status Floating Card (Portal directly to body: 100% Fixed in Viewport Center, Never Moves on Scroll) */}
-            {saleMenuAnchor && currentSheetId === 'account_data' && createPortal(
+            {saleMenuAnchor && isAccountSheet && createPortal(
                 <div
                     className="fixed inset-0 z-[999999] pointer-events-none flex items-center justify-center p-4"
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' }}
@@ -4847,28 +5492,58 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                         <div className="p-1.5 space-y-1.5">
                             {(() => {
+                                const isAutoMode = !saleMenuAnchor.saleStatusMode || saleMenuAnchor.saleStatusMode === 'auto';
                                 const currentAnchorStatus = getAccountSaleStatus(saleMenuAnchor);
                                 return (
                                     <>
-                                        {/* خيار ذكي: تحديد تلقائي حسب العملاء والتجار */}
+                                        {/* خيار ذكي: تحديد تلقائي حسب العملاء والتجار (الوضع التلقائي الافتراضي والنشط دائماً) */}
                                         <button
                                             type="button"
                                             onClick={() => {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'auto');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className="w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 text-indigo-900 dark:text-indigo-200 border-indigo-200/80 dark:border-indigo-800/60 hover:border-indigo-400 hover:shadow-xs mb-1"
+                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                isAutoMode
+                                                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30 ring-2 ring-indigo-500/50'
+                                                    : 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40 text-indigo-900 dark:text-indigo-200 border-indigo-200/80 dark:border-indigo-800/60 hover:border-indigo-400 hover:shadow-xs'
+                                            }`}
                                             title="فحص تلقائي لشيت العملاء وشيت التجار وتحديد الحالة آلياً"
                                         >
                                             <span className="flex items-center gap-2">
-                                                <i className="fa-solid fa-wand-magic-sparkles text-sm text-indigo-600 dark:text-indigo-400 animate-pulse"></i>
+                                                <i className={`fa-solid fa-wand-magic-sparkles text-sm ${isAutoMode ? 'text-yellow-300' : 'text-indigo-600 dark:text-indigo-400'} animate-pulse`}></i>
                                                 <span className="text-xs font-black">تحديد تلقائي ذكي</span>
                                             </span>
-                                            <span className="text-[9px] px-2 py-0.5 rounded-md font-bold bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200">
-                                                حسب الشيتات ⚡
+                                            <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
+                                                isAutoMode ? 'bg-white/25 text-white' : 'bg-indigo-200/80 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200'
+                                            }`}>
+                                                {isAutoMode ? 'الوضع النشط دائماً ✓' : 'حسب الشيتات ⚡'}
                                             </span>
                                         </button>
-                                        <div className="border-b border-slate-200/80 dark:border-slate-800 my-1"></div>
+
+                                        {/* Info banner showing live auto calculated state */}
+                                        <div className={`px-2.5 py-1.5 rounded-xl text-[10px] flex items-center justify-between transition-all ${
+                                            isAutoMode
+                                                ? 'bg-indigo-50/90 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200'
+                                                : 'bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'
+                                        }`}>
+                                            <span className="font-bold flex items-center gap-1.5">
+                                                <i className={`fa-solid fa-circle-nodes ${isAutoMode ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'} text-[10px]`}></i>
+                                                <span>الحالة المحسوبة للشيتات:</span>
+                                            </span>
+                                            <span className="font-black">
+                                                {currentAnchorStatus === 'full' && <span className="text-emerald-600 dark:text-emerald-400">شامل (أخضر) 🟢</span>}
+                                                {currentAnchorStatus === 'double' && <span className="text-purple-600 dark:text-purple-400">جهازين (بنفسجي) 🟣</span>}
+                                                {currentAnchorStatus === 'single' && <span className="text-blue-600 dark:text-blue-400">جهاز (أزرق) 🔵</span>}
+                                                {currentAnchorStatus === 'available' && <span className="text-rose-600 dark:text-rose-400">متاح (أحمر) 🔴</span>}
+                                                {!currentAnchorStatus && <span className="text-slate-500">غير محدد</span>}
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5 my-1 text-[9.5px] font-bold text-slate-400 dark:text-slate-500 px-1 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                            <i className="fa-solid fa-sliders text-[9px]"></i>
+                                            <span>تثبيت يدوي للحالة (اختياري):</span>
+                                        </div>
 
                                         {/* خيار 1: متاح (أحمر) */}
                                         <button
@@ -4877,20 +5552,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'available');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
-                                                currentAnchorStatus === 'available'
+                                            className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                !isAutoMode && currentAnchorStatus === 'available'
                                                     ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/30 ring-2 ring-rose-500/50'
                                                     : 'bg-rose-50/60 dark:bg-rose-950/30 text-rose-900 dark:text-rose-200 border-rose-200/70 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/40 hover:border-rose-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
                                                 <i className={`fa-solid fa-circle-xmark text-sm ${
-                                                    currentAnchorStatus === 'available' ? 'text-white' : 'text-rose-500'
+                                                    !isAutoMode && currentAnchorStatus === 'available' ? 'text-white' : 'text-rose-500'
                                                 }`}></i>
                                                 <span className="text-xs font-black">متاح</span>
                                             </span>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
-                                                currentAnchorStatus === 'available'
+                                                !isAutoMode && currentAnchorStatus === 'available'
                                                     ? 'bg-white/25 text-white'
                                                     : 'bg-rose-200/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200'
                                             }`}>
@@ -4905,20 +5580,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'single');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
-                                                currentAnchorStatus === 'single'
+                                            className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                !isAutoMode && currentAnchorStatus === 'single'
                                                     ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/30 ring-2 ring-blue-500/50'
                                                     : 'bg-blue-50/60 dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 border-blue-200/70 dark:border-blue-900/50 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:border-blue-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
                                                 <i className={`fa-solid fa-mobile-screen text-sm ${
-                                                    currentAnchorStatus === 'single' ? 'text-white' : 'text-blue-500'
+                                                    !isAutoMode && currentAnchorStatus === 'single' ? 'text-white' : 'text-blue-500'
                                                 }`}></i>
                                                 <span className="text-xs font-black">جهاز</span>
                                             </span>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
-                                                currentAnchorStatus === 'single'
+                                                !isAutoMode && currentAnchorStatus === 'single'
                                                     ? 'bg-white/25 text-white'
                                                     : 'bg-blue-200/80 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200'
                                             }`}>
@@ -4933,20 +5608,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'double');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
-                                                currentAnchorStatus === 'double'
+                                            className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                !isAutoMode && currentAnchorStatus === 'double'
                                                     ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/30 ring-2 ring-purple-500/50'
                                                     : 'bg-purple-50/60 dark:bg-purple-950/30 text-purple-900 dark:text-purple-200 border-purple-200/70 dark:border-purple-900/50 hover:bg-purple-100 dark:hover:bg-purple-900/40 hover:border-purple-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
                                                 <i className={`fa-solid fa-tablets text-sm ${
-                                                    currentAnchorStatus === 'double' ? 'text-white' : 'text-purple-500'
+                                                    !isAutoMode && currentAnchorStatus === 'double' ? 'text-white' : 'text-purple-500'
                                                 }`}></i>
                                                 <span className="text-xs font-black">جهازين</span>
                                             </span>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
-                                                currentAnchorStatus === 'double'
+                                                !isAutoMode && currentAnchorStatus === 'double'
                                                     ? 'bg-white/25 text-white'
                                                     : 'bg-purple-200/80 dark:bg-purple-900/60 text-purple-800 dark:text-purple-200'
                                             }`}>
@@ -4961,20 +5636,20 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, 'full');
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
-                                                currentAnchorStatus === 'full'
+                                            className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                !isAutoMode && currentAnchorStatus === 'full'
                                                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-500/50'
                                                     : 'bg-emerald-50/60 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 border-emerald-200/70 dark:border-emerald-900/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-300'
                                             }`}
                                         >
                                             <span className="flex items-center gap-2">
                                                 <i className={`fa-solid fa-circle-check text-sm ${
-                                                    currentAnchorStatus === 'full' ? 'text-white' : 'text-emerald-500'
+                                                    !isAutoMode && currentAnchorStatus === 'full' ? 'text-white' : 'text-emerald-500'
                                                 }`}></i>
                                                 <span className="text-xs font-black">شامل</span>
                                             </span>
                                             <span className={`text-[9px] px-2 py-0.5 rounded-md font-bold ${
-                                                currentAnchorStatus === 'full'
+                                                !isAutoMode && currentAnchorStatus === 'full'
                                                     ? 'bg-white/25 text-white'
                                                     : 'bg-emerald-200/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200'
                                             }`}>
@@ -4989,8 +5664,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 handleSetSaleStatus(saleMenuAnchor.id, null);
                                                 setSaleMenuAnchor(null);
                                             }}
-                                            className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
-                                                !currentAnchorStatus
+                                            className={`w-full px-3 py-2 rounded-xl flex items-center justify-between text-xs font-bold transition-all cursor-pointer border ${
+                                                !isAutoMode && !currentAnchorStatus
                                                     ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white border-slate-300 dark:border-slate-600 shadow-xs'
                                                     : 'bg-slate-50 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
                                             }`}

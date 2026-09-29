@@ -4,9 +4,10 @@ export const STORAGE_PREFIX = 'sv_custom_sheet_';
 
 export const DEFAULT_SHEETS = [
     { id: 'client_data', name: 'بيانات العميل', icon: 'fa-user-tie', color: 'from-blue-600 to-indigo-600', badgeColor: 'bg-blue-500' },
-    { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' },
-    { id: 'merchant_data', name: 'بيانات التاجر', icon: 'fa-store', color: 'from-emerald-600 to-teal-600', badgeColor: 'bg-emerald-500' },
     { id: 'account_data', name: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'from-purple-600 to-indigo-600', badgeColor: 'bg-purple-500' },
+    { id: 'client_data_2', name: 'ادوبي غير مسجل', icon: 'fa-user-clock', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' },
+    { id: 'account_data_2', name: 'بيانات الحساب 2', icon: 'fa-shield-halved', color: 'from-orange-600 to-amber-600', badgeColor: 'bg-orange-500' },
+    { id: 'merchant_data', name: 'بيانات التاجر', icon: 'fa-store', color: 'from-emerald-600 to-teal-600', badgeColor: 'bg-emerald-500' },
     { id: 'customers_data', name: 'داتا العملاء', icon: 'fa-address-book', color: 'from-cyan-600 to-blue-600', badgeColor: 'bg-cyan-500' },
     { id: 'trash_data', name: 'سلة المهملات', icon: 'fa-trash-can', color: 'from-rose-600 to-red-600', badgeColor: 'bg-rose-500' }
 ];
@@ -382,13 +383,31 @@ export const migrateSheetsConfig = () => {
             const parsed = JSON.parse(saved);
             if (Array.isArray(parsed)) {
                 let changed = false;
-                const updated = parsed.map(s => {
+                let updated = parsed.map(s => {
                     if (s.id === 'invoice_data') {
                         changed = true;
                         return { id: 'trash_data', name: 'سلة المهملات', icon: 'fa-trash-can', color: 'from-rose-600 to-red-600', badgeColor: 'bg-rose-500' };
                     }
+                    if (s.id === 'client_data_2' && s.name !== 'ادوبي غير مسجل') {
+                        changed = true;
+                        return { ...s, name: 'ادوبي غير مسجل', icon: 'fa-user-clock' };
+                    }
                     return s;
                 });
+                if (!updated.some(s => s.id === 'account_data_2')) {
+                    const c2Idx = updated.findIndex(s => s.id === 'client_data_2');
+                    const newAcc2 = { id: 'account_data_2', name: 'بيانات الحساب 2', icon: 'fa-shield-halved', color: 'from-orange-600 to-amber-600', badgeColor: 'bg-orange-500' };
+                    if (c2Idx !== -1) {
+                        updated.splice(c2Idx + 1, 0, newAcc2);
+                    } else {
+                        updated.push(newAcc2);
+                    }
+                    changed = true;
+                }
+                if (!updated.some(s => s.id === 'trash_data')) {
+                    updated.push({ id: 'trash_data', name: 'سلة المهملات', icon: 'fa-trash-can', color: 'from-rose-600 to-red-600', badgeColor: 'bg-rose-500' });
+                    changed = true;
+                }
                 if (changed) {
                     localStorage.setItem('sv_sheets_config', JSON.stringify(updated));
                 }
@@ -445,7 +464,7 @@ export const scanAndRepairAllSheets = (sheets = DEFAULT_SHEETS) => {
                     typeof item.visa !== 'string' ||
                     typeof item.invoiceNumber !== 'string' ||
                     !item.id ||
-                    (sheet.id === 'account_data' && (!item.accountCreatedDate || !item.reminderDays))
+                    ((sheet.id === 'account_data' || sheet.id === 'account_data_2') && (!item.accountCreatedDate || !item.reminderDays))
                 );
                 if (wasInvalid) sheetRepairedCount++;
                 cleaned.push(sanitized);
@@ -827,13 +846,17 @@ export const calculateAccountAutoStatus = (accountEmail, clientRecords = [], mer
 export const autoSyncAccountsStatus = (accountRecords = [], clientRecords = [], merchantRecords = []) => {
     let updatedCount = 0;
     const updated = (accountRecords || []).map(acc => {
+        if (acc.saleStatusMode === 'manual') {
+            return acc;
+        }
         const email = acc.email || acc.name || '';
         const autoStatus = calculateAccountAutoStatus(email, clientRecords, merchantRecords);
-        if (acc.saleStatus !== autoStatus) {
+        if (acc.saleStatus !== autoStatus || acc.saleStatusMode !== 'auto') {
             updatedCount++;
             return {
                 ...acc,
                 saleStatus: autoStatus,
+                saleStatusMode: 'auto',
                 isSold: autoStatus === 'full' ? true : autoStatus === 'available' ? false : null,
                 updated_at: new Date().toISOString()
             };

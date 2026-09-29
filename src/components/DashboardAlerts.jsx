@@ -84,7 +84,7 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
         const alertsList = [];
 
         Object.entries(allRecordsBySheet).forEach(([sheetId, records]) => {
-            if (sheetId === 'trash_data' || sheetId === 'account_data' || sheetId === 'customers_data') return;
+            if (sheetId === 'trash_data' || sheetId === 'account_data' || sheetId === 'account_data_2' || sheetId === 'customers_data') return;
             if (!canAccessSheet(sheetId)) return; // Only process sheets the user is permitted to access
             totalCount += records.length;
             const sheetMeta = getSheetMeta(sheetId);
@@ -426,7 +426,7 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
                             className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
                             <option value="all">جميع الشيتات المتاحة</option>
-                            {DEFAULT_SHEETS.filter(ds => ds.id !== 'trash_data' && ds.id !== 'account_data' && ds.id !== 'customers_data' && canAccessSheet(ds.id)).map(ds => {
+                            {DEFAULT_SHEETS.filter(ds => ds.id !== 'trash_data' && ds.id !== 'account_data' && ds.id !== 'account_data_2' && ds.id !== 'customers_data' && canAccessSheet(ds.id)).map(ds => {
                                 const meta = getSheetMeta(ds.id);
                                 return (
                                     <option key={ds.id} value={ds.id}>
@@ -607,12 +607,12 @@ export default function DashboardAlerts({ onNavigateSheet, mode = 'dashboard' })
                                                 )}
                                             </div>
                                             {(item.remInfo.targetDate || item.remInfo.endDate) && (
-                                                <span>{item.sheetId === 'account_data' ? 'موعد التذكير: ' : 'تاريخ الانتهاء: '}<b className="font-mono text-slate-800 dark:text-slate-200">{item.remInfo.targetDate || item.remInfo.endDate}</b></span>
+                                                <span>{(item.sheetId === 'account_data' || item.sheetId === 'account_data_2') ? 'موعد التذكير: ' : 'تاريخ الانتهاء: '}<b className="font-mono text-slate-800 dark:text-slate-200">{item.remInfo.targetDate || item.remInfo.endDate}</b></span>
                                             )}
                                         </div>
 
                                         {/* Linked Account info if available (hidden for client, adobe unregistered and merchant data) */}
-                                        {item.selectedAccount && item.sheetId !== 'client_data' && item.sheetId !== 'adobe_unregistered' && item.sheetId !== 'merchant_data' && (
+                                        {item.selectedAccount && item.sheetId !== 'client_data' && item.sheetId !== 'client_data_2' && item.sheetId !== 'adobe_unregistered' && item.sheetId !== 'merchant_data' && (
                                             <div className="flex items-center justify-between text-[11px] bg-purple-50/70 dark:bg-purple-950/40 border border-purple-200/70 dark:border-purple-800/60 rounded-lg px-2.5 py-1 text-purple-800 dark:text-purple-300">
                                                 <div className="flex items-center gap-1.5 font-bold truncate">
                                                     <i className="fa-solid fa-shield-halved text-purple-600 dark:text-purple-400 text-[10px]"></i>

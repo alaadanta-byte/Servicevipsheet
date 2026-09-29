@@ -4,12 +4,13 @@ import { useAuth } from '../context/AuthContext';
 import { calculateRemainingTime, calculateAccountReminder } from '../utils/dataRepair';
 
 const DEFAULT_SHEETS = [
-    { id: 'client_data', label: 'بيانات العميل', icon: 'fa-user-tie', color: 'text-blue-400', activeBg: 'bg-blue-600' },
-    { id: 'client_data_2', label: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'text-amber-400', activeBg: 'bg-amber-600' },
-    { id: 'merchant_data', label: 'بيانات التاجر', icon: 'fa-store', color: 'text-emerald-400', activeBg: 'bg-emerald-600' },
-    { id: 'account_data', label: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'text-purple-400', activeBg: 'bg-purple-600' },
-    { id: 'customers_data', label: 'داتا العملاء', icon: 'fa-address-book', color: 'text-cyan-400', activeBg: 'bg-cyan-600' },
-    { id: 'trash_data', label: 'سلة المهملات', icon: 'fa-trash-can', color: 'text-rose-400', activeBg: 'bg-rose-600' },
+    { id: 'client_data', label: 'بيانات العميل', icon: 'fa-user-tie', color: 'text-blue-400', activeBg: 'bg-blue-600', group: 'adobe_reg' },
+    { id: 'account_data', label: 'بيانات الحساب', icon: 'fa-shield-halved', color: 'text-purple-400', activeBg: 'bg-purple-600', group: 'adobe_reg' },
+    { id: 'client_data_2', label: 'ادوبي غير مسجل', icon: 'fa-user-clock', color: 'text-amber-400', activeBg: 'bg-gradient-to-r from-amber-500 to-orange-500', group: 'adobe_unreg' },
+    { id: 'account_data_2', label: 'بيانات الحساب 2', icon: 'fa-shield-halved', color: 'text-orange-400', activeBg: 'bg-orange-600', group: 'adobe_unreg' },
+    { id: 'merchant_data', label: 'بيانات التاجر', icon: 'fa-store', color: 'text-emerald-400', activeBg: 'bg-emerald-600', group: 'general' },
+    { id: 'customers_data', label: 'داتا العملاء', icon: 'fa-address-book', color: 'text-cyan-400', activeBg: 'bg-cyan-600', group: 'general' },
+    { id: 'trash_data', label: 'سلة المهملات', icon: 'fa-trash-can', color: 'text-rose-400', activeBg: 'bg-rose-600', group: 'general' },
 ];
 
 export default function Sidebar ({ isOpen, onClose }) {
@@ -47,6 +48,12 @@ export default function Sidebar ({ isOpen, onClose }) {
         if (!user) return [];
         if (user.role === 'admin') return sheetItems;
         return sheetItems.filter(item => {
+            if (item.id === 'client_data_2') {
+                return hasPermission('sheet_client_data_2') || hasPermission('client_data_2') || hasPermission('sheet_adobe_unregistered');
+            }
+            if (item.id === 'account_data_2') {
+                return hasPermission('sheet_account_data_2') || hasPermission('account_data_2') || hasPermission('sheet_account_data');
+            }
             return hasPermission('sheet_' + item.id) || hasPermission(item.id);
         });
     }, [sheetItems, user, hasPermission]);
@@ -72,14 +79,32 @@ export default function Sidebar ({ isOpen, onClose }) {
                         configChanged = true;
                     }
 
-                    // Ensure client_data_2 is present
-                    if (!parsed.some(p => p.id === 'client_data_2')) {
-                        const clientIdx = parsed.findIndex(p => p.id === 'client_data');
-                        const newSheet = { id: 'client_data_2', name: 'بيانات العميل 2', icon: 'fa-user-tie', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
+                    // Ensure client_data_2 is present and named 'ادوبي غير مسجل'
+                    const c2 = parsed.find(p => p.id === 'client_data_2');
+                    if (!c2) {
+                        const clientIdx = parsed.findIndex(p => p.id === 'account_data');
+                        const newSheet = { id: 'client_data_2', name: 'ادوبي غير مسجل', icon: 'fa-user-clock', color: 'from-amber-600 to-orange-600', badgeColor: 'bg-amber-500' };
                         if (clientIdx !== -1) {
                             parsed.splice(clientIdx + 1, 0, newSheet);
                         } else {
-                            parsed.unshift(newSheet);
+                            parsed.push(newSheet);
+                        }
+                        configChanged = true;
+                    } else if (c2.name !== 'ادوبي غير مسجل') {
+                        c2.name = 'ادوبي غير مسجل';
+                        c2.icon = 'fa-user-clock';
+                        configChanged = true;
+                    }
+
+                    // Ensure account_data_2 is present
+                    const acc2 = parsed.find(p => p.id === 'account_data_2');
+                    if (!acc2) {
+                        const c2Idx = parsed.findIndex(p => p.id === 'client_data_2');
+                        const newSheet = { id: 'account_data_2', name: 'بيانات الحساب 2', icon: 'fa-shield-halved', color: 'from-orange-600 to-amber-600', badgeColor: 'bg-orange-500' };
+                        if (c2Idx !== -1) {
+                            parsed.splice(c2Idx + 1, 0, newSheet);
+                        } else {
+                            parsed.push(newSheet);
                         }
                         configChanged = true;
                     }
@@ -92,6 +117,17 @@ export default function Sidebar ({ isOpen, onClose }) {
                         } else {
                             parsed.push(newSheet);
                         }
+                        configChanged = true;
+                    }
+
+                    if (!parsed.some(p => p.id === 'trash_data')) {
+                        parsed.push({
+                            id: 'trash_data',
+                            name: 'سلة المهملات',
+                            icon: 'fa-trash-can',
+                            color: 'from-rose-600 to-red-600',
+                            badgeColor: 'bg-rose-500'
+                        });
                         configChanged = true;
                     }
 
@@ -123,7 +159,7 @@ export default function Sidebar ({ isOpen, onClose }) {
         // Count pending renewal alerts (near renewal <= 3 days or expired < 0) for permitted subscription sheets only
         let alertsTotal = 0;
         visibleSheets.forEach(s => {
-            if (s.id === 'trash_data' || s.id === 'account_data' || s.id === 'customers_data') return;
+            if (s.id === 'trash_data' || s.id === 'account_data' || s.id === 'account_data_2' || s.id === 'customers_data') return;
             try {
                 const data = localStorage.getItem(`sv_custom_sheet_${s.id}`);
                 if (data) {
@@ -146,6 +182,37 @@ export default function Sidebar ({ isOpen, onClose }) {
         const interval = setInterval(loadSheetInfo, 2000);
         return () => clearInterval(interval);
     }, [activeTab, visibleSheets]);
+
+    const renderNavItem = (item) => {
+        if (!item) return null;
+        const isCurrentActive = activeTab === item.id;
+        const count = sheetCounts[item.id] || 0;
+
+        return (
+            <button
+                key={item.id}
+                onClick={() => { setActiveTab(item.id); onClose(); }}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                    isCurrentActive
+                        ? `${item.activeBg || 'bg-indigo-600'} text-white shadow-lg font-black scale-[1.02]`
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white font-medium'
+                }`}
+            >
+                <div className="flex items-center gap-3 min-w-0">
+                    <i className={`fa-solid ${item.icon} w-5 text-center text-base transition-transform group-hover:scale-110 ${
+                        isCurrentActive ? 'text-white' : item.color
+                    }`}></i>
+                    <span className="text-sm truncate">{item.label}</span>
+                </div>
+
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-black flex-shrink-0 ${
+                    isCurrentActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200'
+                }`}>
+                    {count}
+                </span>
+            </button>
+        );
+    };
 
     return (
         <>
@@ -173,13 +240,13 @@ export default function Sidebar ({ isOpen, onClose }) {
                     </div>
                 </div>
 
-                {/* Single Unified Navigation List */}
-                <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
+                {/* Structured Navigation List */}
+                <nav className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
                     {/* Dashboard Button (الرئيسية) */}
                     {(user?.role === 'admin' || hasPermission('dashboard')) && (
                         <button
                             onClick={() => { setActiveTab('dashboard'); onClose(); }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
                                 activeTab === 'dashboard'
                                     ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg font-black scale-[1.02]'
                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white font-bold'
@@ -198,7 +265,7 @@ export default function Sidebar ({ isOpen, onClose }) {
                     {user?.role === 'admin' && (
                         <button
                             onClick={() => { setActiveTab('users'); onClose(); }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
                                 activeTab === 'users'
                                     ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg font-black scale-[1.02]'
                                     : 'text-slate-300 hover:bg-slate-800 hover:text-white font-bold'
@@ -217,99 +284,81 @@ export default function Sidebar ({ isOpen, onClose }) {
                             </span>
                         </button>
                     )}
-                    {/* Unified Single Menu for Client Data (بيانات العميل) */}
-                    {(user?.role === 'admin' || hasPermission('sheet_client_data') || hasPermission('client_data') || hasPermission('sheet_client_data_2') || hasPermission('client_data_2')) && (
-                        <button
-                            onClick={() => {
-                                if (activeTab !== 'client_data' && activeTab !== 'client_data_2') {
-                                    setActiveTab('client_data');
-                                }
-                                onClose();
-                            }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
-                                (activeTab === 'client_data' || activeTab === 'client_data_2')
-                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg font-black scale-[1.02]'
-                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white font-bold'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <i className={`fa-solid fa-user-tie w-5 text-center text-base transition-transform group-hover:scale-110 ${
-                                    (activeTab === 'client_data' || activeTab === 'client_data_2') ? 'text-white' : 'text-blue-400'
-                                }`}></i>
-                                <span className="text-sm truncate">بيانات العميل</span>
-                            </div>
 
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-black flex-shrink-0 ${
-                                (activeTab === 'client_data' || activeTab === 'client_data_2')
-                                    ? 'bg-white/20 text-white'
-                                    : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200'
-                            }`}>
-                                {(sheetCounts['client_data'] || 0) + (sheetCounts['client_data_2'] || 0)}
-                            </span>
-                        </button>
+                    {/* Group 1: أدوبي مسجل */}
+                    {visibleSheets.some(s => s.id === 'client_data' || s.id === 'account_data') && (
+                        <div className="pt-2">
+                            <div className="px-2.5 pb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                <span>أدوبي مسجل</span>
+                            </div>
+                            <div className="space-y-1">
+                                {visibleSheets.filter(s => s.id === 'client_data' || s.id === 'account_data').map(renderNavItem)}
+                            </div>
+                        </div>
                     )}
 
-                    {visibleSheets.map(item => {
-                        if (item.id === 'client_data' || item.id === 'client_data_2') return null;
-                        const isCurrentActive = activeTab === item.id;
-                        const count = sheetCounts[item.id] || 0;
+                    {/* Group 2: أدوبي غير مسجل (قائمة جديدة مخصصة بالكامل) */}
+                    {visibleSheets.some(s => s.id === 'client_data_2' || s.id === 'account_data_2') && (
+                        <div className="pt-2">
+                            <div className="px-2.5 pb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-400">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    <span>أدوبي غير مسجل</span>
+                                </div>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">مستقل</span>
+                            </div>
+                            <div className="space-y-1">
+                                {visibleSheets.filter(s => s.id === 'client_data_2' || s.id === 'account_data_2').map(renderNavItem)}
+                            </div>
+                        </div>
+                    )}
 
-                        return (
+                    {/* Group 3: خدمات وداتا أخرى */}
+                    {visibleSheets.some(s => s.id === 'merchant_data' || s.id === 'customers_data' || s.id === 'trash_data') && (
+                        <div className="pt-2">
+                            <div className="px-2.5 pb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>خدمات وقوائم أخرى</span>
+                            </div>
+                            <div className="space-y-1">
+                                {visibleSheets.filter(s => s.id === 'merchant_data' || s.id === 'customers_data' || s.id === 'trash_data').map(renderNavItem)}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Alerts item (التنبيهات لوحدها مع قائمة الشيت) */}
+                    {(user?.role === 'admin' || hasPermission('dashboard') || hasPermission('alerts') || hasPermission('renewals')) && (
+                        <div className="pt-2">
                             <button
-                                key={item.id}
-                                onClick={() => { setActiveTab(item.id); onClose(); }}
-                                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
-                                    isCurrentActive
-                                        ? `${item.activeBg || 'bg-indigo-600'} text-white shadow-lg font-bold scale-[1.02]`
+                                onClick={() => { setActiveTab('alerts'); onClose(); }}
+                                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
+                                    activeTab === 'alerts'
+                                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg font-black scale-[1.02]'
                                         : 'text-slate-300 hover:bg-slate-800 hover:text-white font-medium'
                                 }`}
                             >
                                 <div className="flex items-center gap-3.5 min-w-0">
-                                    <i className={`fa-solid ${item.icon} w-5 text-center text-base transition-transform group-hover:scale-110 ${
-                                        isCurrentActive ? 'text-white' : item.color
+                                    <i className={`fa-solid fa-bell w-5 text-center text-base transition-transform group-hover:scale-110 ${
+                                        activeTab === 'alerts' ? 'text-white' : 'text-amber-400'
                                     }`}></i>
-                                    <span className="text-sm truncate">{item.label}</span>
+                                    <span className="text-sm truncate">التنبيهات</span>
                                 </div>
 
-                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-black flex-shrink-0 ${
-                                    isCurrentActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400 group-hover:bg-slate-700 group-hover:text-slate-200'
-                                }`}>
-                                    {count}
-                                </span>
+                                {totalAlertsCount > 0 ? (
+                                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-black flex items-center gap-1 ${
+                                        activeTab === 'alerts' ? 'bg-white text-orange-600 shadow-sm' : 'bg-amber-500 text-white animate-pulse'
+                                    }`}>
+                                        <i className="fa-solid fa-bell text-[9px]"></i>
+                                        <span>{totalAlertsCount}</span>
+                                    </span>
+                                ) : (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-black">
+                                        0
+                                    </span>
+                                )}
                             </button>
-                        );
-                    })}
-
-                    {/* Alerts item (التنبيهات لوحدها مع قائمة الشيت) */}
-                    {(user?.role === 'admin' || hasPermission('dashboard') || hasPermission('alerts') || hasPermission('renewals')) && (
-                        <button
-                            onClick={() => { setActiveTab('alerts'); onClose(); }}
-                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 group relative cursor-pointer ${
-                                activeTab === 'alerts'
-                                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg font-black scale-[1.02]'
-                                    : 'text-slate-300 hover:bg-slate-800 hover:text-white font-medium'
-                            }`}
-                        >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                                <i className={`fa-solid fa-bell w-5 text-center text-base transition-transform group-hover:scale-110 ${
-                                    activeTab === 'alerts' ? 'text-white' : 'text-amber-400'
-                                }`}></i>
-                                <span className="text-sm truncate">التنبيهات</span>
-                            </div>
-
-                            {totalAlertsCount > 0 ? (
-                                <span className={`text-xs px-2.5 py-0.5 rounded-full font-black flex items-center gap-1 ${
-                                    activeTab === 'alerts' ? 'bg-white text-orange-600 shadow-sm' : 'bg-amber-500 text-white animate-pulse'
-                                }`}>
-                                    <i className="fa-solid fa-bell text-[9px]"></i>
-                                    <span>{totalAlertsCount}</span>
-                                </span>
-                            ) : (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-black">
-                                    0
-                                </span>
-                            )}
-                        </button>
+                        </div>
                     )}
                 </nav>
 
