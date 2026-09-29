@@ -2541,7 +2541,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     ? 'bg-blue-600 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="عملاء أدوبي مسجل"
+                                            title="عملاء شيت 1"
                                         >
                                             <i className="fa-solid fa-users text-[11px]"></i>
                                             <span>بيانات العميل</span>
@@ -2559,7 +2559,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     ? 'bg-purple-600 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="حسابات أدوبي مسجل"
+                                            title="حسابات شيت 1"
                                         >
                                             <i className="fa-solid fa-user-gear text-[11px]"></i>
                                             <span>بيانات الحساب</span>
@@ -2581,7 +2581,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="عملاء أدوبي غير مسجل"
+                                            title="عملاء شيت 2"
                                         >
                                             <i className="fa-solid fa-clock-rotate-left text-[11px]"></i>
                                             <span>ادوبي غير مسجل</span>
@@ -2599,7 +2599,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                     ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-md scale-[1.02]'
                                                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
                                             }`}
-                                            title="قاعدة بيانات حسابات خاصة بأدوبي غير مسجل"
+                                            title="قاعدة بيانات حسابات خاصة بشيت 2"
                                         >
                                             <i className="fa-solid fa-shield-halved text-[11px]"></i>
                                             <span>بيانات الحساب 2</span>
@@ -2631,11 +2631,11 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     : isCustomersSheet
                                     ? 'إدارة وحفظ بيانات العملاء وأرقام الهواتف ونوع الاشتراك والتواصل السريع'
                                     : currentSheetId === 'client_data'
-                                    ? 'بيانات العميل (أدوبي مسجل): إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
+                                    ? 'بيانات العميل (شيت 1): إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
                                     : currentSheetId === 'client_data_2'
                                     ? 'ادوبي غير مسجل: إدارة وحفظ بيانات عملاء الخدمة المرتبطة بقاعدة بيانات الحساب 2'
                                     : currentSheetId === 'account_data_2'
-                                    ? 'بيانات الحساب 2: قاعدة بيانات حسابات خاصة ومستقلة لعملاء أدوبي غير مسجل'
+                                    ? 'بيانات الحساب 2: قاعدة بيانات حسابات خاصة ومستقلة لعملاء شيت 2'
                                     : currentSheetId === 'account_data'
                                     ? 'بيانات الحساب: إدارة وحفظ بيانات الحسابات وتاريخ الإنشاء وفترة التذكير محلياً'
                                     : isClientOrMerchant

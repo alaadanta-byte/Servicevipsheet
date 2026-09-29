@@ -285,12 +285,12 @@ export default function Sidebar ({ isOpen, onClose }) {
                         </button>
                     )}
 
-                    {/* Group 1: أدوبي مسجل */}
+                    {/* Group 1: شيت 1 */}
                     {visibleSheets.some(s => s.id === 'client_data' || s.id === 'account_data') && (
                         <div className="pt-2">
                             <div className="px-2.5 pb-1.5 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                <span>أدوبي مسجل</span>
+                                <span>شيت 1</span>
                             </div>
                             <div className="space-y-1">
                                 {visibleSheets.filter(s => s.id === 'client_data' || s.id === 'account_data').map(renderNavItem)}
@@ -298,13 +298,13 @@ export default function Sidebar ({ isOpen, onClose }) {
                         </div>
                     )}
 
-                    {/* Group 2: أدوبي غير مسجل (قائمة جديدة مخصصة بالكامل) */}
+                    {/* Group 2: شيت 2 */}
                     {visibleSheets.some(s => s.id === 'client_data_2' || s.id === 'account_data_2') && (
                         <div className="pt-2">
                             <div className="px-2.5 pb-1.5 flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-amber-400">
                                 <div className="flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                    <span>أدوبي غير مسجل</span>
+                                    <span>شيت 2</span>
                                 </div>
                                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">مستقل</span>
                             </div>
