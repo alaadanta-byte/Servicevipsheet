@@ -1696,13 +1696,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         const newItems = [];
 
         lines.forEach((line, idx) => {
-            // Determine delimiter: tab, pipe, colon, comma
+            // Determine delimiter: tab, pipe, colon, comma, or whitespace
             let parts = [];
             if (line.includes('\t')) parts = line.split('\t');
             else if (line.includes('|')) parts = line.split('|');
             else if (line.includes(',')) parts = line.split(',');
             else if (line.includes(':')) parts = line.split(':');
-            else parts = [line];
+            else parts = line.split(/\s+/);
 
             parts = parts.map(p => p.trim());
 
@@ -1713,6 +1713,38 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     phone: parts[1] || '',
                     deviceType: parts[2] || '',
                     notes: parts[3] || '',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+            } else if (currentSheetId === 'account_data_2') {
+                const email = (parts[0] || '').trim();
+                const password = (parts[1] || '').trim();
+                const password2 = (parts[2] || '').trim();
+                if (!email && !password && !password2) return;
+
+                newItems.push({
+                    id: 'acc2_' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substring(2, 6),
+                    name: '',
+                    phone: '',
+                    email: email,
+                    password: password,
+                    password2: password2,
+                    serviceType: '',
+                    invoiceNumber: '',
+                    visa: '',
+                    visaAccount: '',
+                    duration: '',
+                    startDate: '',
+                    deviceType: '',
+                    paymentStatus: '',
+                    selectedAccount: '',
+                    notes: '',
+                    accountCreatedDate: new Date().toISOString().slice(0, 10),
+                    reminderDays: '',
+                    reminderStatus: '',
+                    saleStatus: 'available',
+                    saleStatusMode: 'auto',
+                    isSold: false,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 });
@@ -1752,10 +1784,26 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
         });
 
         if (newItems.length > 0) {
-            saveRecords([...newItems, ...records]);
-            showToast(`تمت إضافة ${newItems.length} سجل بنجاح ✓`, 'success');
+            let combined = [...newItems, ...records];
+            if (currentSheetId === 'account_data_2') {
+                let clientRecs = [];
+                try {
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                    if (cRaw) clientRecs = JSON.parse(cRaw);
+                } catch {}
+                const { updated } = autoSyncAccountsStatus(combined, clientRecs, []);
+                combined = updated;
+            }
+            saveRecords(combined);
+            showToast(
+                currentSheetId === 'account_data_2'
+                    ? `تمت إضافة ${newItems.length} حساب بنجاح إلى بيانات الحساب 2 ✓`
+                    : `تمت إضافة ${newItems.length} سجل بنجاح ✓`,
+                'success'
+            );
             setBulkText('');
             setShowBulkModal(false);
+            refreshAvailableAccounts();
         }
     };
 
@@ -2666,6 +2714,25 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     <i className="fa-solid fa-plus"></i>
                                     <span>إضافة بيانات جديدة</span>
                                 </button>
+
+                                {/* Bulk Add Record */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setBulkText('');
+                                        setShowBulkModal(true);
+                                    }}
+                                    className={
+                                        currentSheetId === 'account_data_2'
+                                            ? "bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-orange-600/25 transition transform active:scale-95 cursor-pointer"
+                                            : "bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-purple-600/25 transition transform active:scale-95 cursor-pointer"
+                                    }
+                                    title={currentSheetId === 'account_data_2' ? "إضافة مجموعة حسابات دفعة واحدة (Email | Password | Password2)" : "إضافة مجموعة بيانات دفعة واحدة"}
+                                >
+                                    <i className="fa-solid fa-layer-group"></i>
+                                    <span>{currentSheetId === 'account_data_2' ? 'إضافة مجموعة بيانات' : 'إضافة مجمعة'}</span>
+                                </button>
+                                </>
                             )
                         )}
 
@@ -4857,7 +4924,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             )}
 
                             {/* Invoice & Visa (for Invoice Sheet & Account Sheet - hidden in main table for Account sheet) */}
-                            {!isClientOrMerchant && (
+                            {!isClientOrMerchant && currentSheetId !== 'account_data_2' && (
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
@@ -5075,15 +5142,25 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
                 >
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-lg">
+                                <div className={`w-10 h-10 rounded-xl text-white flex items-center justify-center text-lg shadow-md ${
+                                    currentSheetId === 'account_data_2'
+                                        ? 'bg-gradient-to-r from-orange-600 to-amber-600 shadow-orange-600/30'
+                                        : 'bg-purple-600 shadow-purple-600/30'
+                                }`}>
                                     <i className="fa-solid fa-layer-group"></i>
                                 </div>
                                 <div>
-                                    <h3 className="font-black text-lg text-slate-800 dark:text-white">إضافة مجمعة سريعة</h3>
-                                    <p className="text-xs text-slate-400">إضافة عدة أسطر دفعة واحدة إلى <b className="text-indigo-500">{currentSheet.name}</b></p>
+                                    <h3 className="font-black text-lg text-slate-800 dark:text-white">
+                                        {currentSheetId === 'account_data_2' ? 'إضافة مجموعة بيانات - بيانات الحساب 2' : 'إضافة مجمعة سريعة'}
+                                    </h3>
+                                    <p className="text-xs text-slate-400">
+                                        {currentSheetId === 'account_data_2'
+                                            ? 'تسجيل حسابات متعددة دفعة واحدة (Email | Password | Password2 فقط)'
+                                            : <>إضافة عدة أسطر دفعة واحدة إلى <b className="text-indigo-500">{currentSheet.name}</b></>}
+                                    </p>
                                 </div>
                             </div>
                             <button
@@ -5094,40 +5171,112 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             </button>
                         </div>
 
-                        <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                            <p className="font-bold text-slate-800 dark:text-slate-200">الصيغ المدعومة لكل سطر (مفصولة بـ : أو | أو Tab):</p>
-                            {isCustomersSheet ? (
-                                <>
-                                    <p className="font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
-                                        الاسم:رقم الهاتف:نوع الاشتراك:ملاحظات
+                        {currentSheetId === 'account_data_2' ? (
+                            <div className="bg-orange-50/80 dark:bg-orange-950/40 p-3.5 rounded-2xl border border-orange-200/80 dark:border-orange-900/60 text-xs space-y-2">
+                                <div className="flex items-center gap-2 text-orange-800 dark:text-orange-200 font-bold">
+                                    <i className="fa-solid fa-circle-info text-orange-600"></i>
+                                    <span>الصيغة المطلوبة (فقط البريد وباسوورد أول وباسوورد ثاني):</span>
+                                </div>
+                                <div className="font-mono text-xs font-bold text-orange-900 dark:text-orange-200 bg-white/90 dark:bg-black/40 px-3 py-2 rounded-xl border border-orange-200 dark:border-orange-800/80 dir-ltr text-left">
+                                    Email | Password | Password2
+                                </div>
+                                <div className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                                    <p>• الفواصل المدعومة لكل سطر: <b>|</b> أو <b>:</b> أو <b>Tab (نسخ مباشر من أعمدة Excel)</b> أو <b>مسافة</b>.</p>
+                                    <p className="font-mono text-[10.5px] text-slate-700 dark:text-slate-300 dir-ltr text-left">
+                                        مثال: user1@outlook.com | Pass123 | Adobe#2025
                                     </p>
-                                    <p className="text-[11px] text-slate-400">مثال: أحمد محمد:01012345678:جهاز:عميل مميز</p>
-                                </>
-                            ) : isClientOrMerchant ? (
-                                <>
-                                    <p className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
-                                        email:pass1:pass2:duration:notes
+                                    <p className="text-emerald-700 dark:text-emerald-400 font-bold pt-0.5">
+                                        ✓ مش لازم باقي البيانات — سيتم تعيين الحسابات تلقائياً (متاحة للبيع وبدون تذكير).
                                     </p>
-                                    <p className="text-[11px] text-slate-400">مثال: user@mail.com:Pass123:PassAlt:1 شهر:عميل مميز</p>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
-                                        email:pass:pass2:invoice:visa:visaAccount:notes
-                                    </p>
-                                    <p className="text-[11px] text-slate-400">مثال: user@mail.com:Pass123:PassAlt:INV-99:4111222233334444:CIB Bank:عميل مميز</p>
-                                </>
-                            )}
-                        </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                                <p className="font-bold text-slate-800 dark:text-slate-200">الصيغ المدعومة لكل سطر (مفصولة بـ : أو | أو Tab):</p>
+                                {isCustomersSheet ? (
+                                    <>
+                                        <p className="font-mono text-[11px] text-cyan-600 dark:text-cyan-400">
+                                            الاسم:رقم الهاتف:نوع الاشتراك:ملاحظات
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">مثال: أحمد محمد:01012345678:جهاز:عميل مميز</p>
+                                    </>
+                                ) : isClientOrMerchant ? (
+                                    <>
+                                        <p className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
+                                            email:pass1:pass2:duration:notes
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">مثال: user@mail.com:Pass123:PassAlt:1 شهر:عميل مميز</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
+                                            email:pass:pass2:invoice:visa:visaAccount:notes
+                                        </p>
+                                        <p className="text-[11px] text-slate-400">مثال: user@mail.com:Pass123:PassAlt:INV-99:4111222233334444:CIB Bank:عميل مميز</p>
+                                    </>
+                                )}
+                            </div>
+                        )}
 
                         <form onSubmit={handleBulkAddSubmit} className="space-y-4">
                             <textarea
-                                rows={8}
+                                rows={currentSheetId === 'account_data_2' ? 6 : 8}
                                 value={bulkText}
                                 onChange={(e) => setBulkText(e.target.value)}
-                                placeholder="الصق البيانات هنا، كل سطر يمثل سجلاً منفصلاً..."
-                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500/50 dir-ltr text-left"
+                                placeholder={
+                                    currentSheetId === 'account_data_2'
+                                        ? "الصق الحسابات هنا، كل سطر يمثل حساباً منفصلاً، مثال:\nuser1@outlook.com | Pass123 | Adobe#2025\nuser2@outlook.com | Pass456 | Adobe#2025"
+                                        : "الصق البيانات هنا، كل سطر يمثل سجلاً منفصلاً..."
+                                }
+                                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/50 dir-ltr text-left"
                             />
+
+                            {/* Real-time Preview Table for account_data_2 */}
+                            {currentSheetId === 'account_data_2' && bulkText.trim() && (() => {
+                                const previewLines = bulkText.split('\n').map(l => l.trim()).filter(Boolean);
+                                const parsedRows = previewLines.slice(0, 6).map(l => {
+                                    let parts = [];
+                                    if (l.includes('\t')) parts = l.split('\t');
+                                    else if (l.includes('|')) parts = l.split('|');
+                                    else if (l.includes(',')) parts = l.split(',');
+                                    else if (l.includes(':')) parts = l.split(':');
+                                    else parts = l.split(/\s+/);
+                                    return {
+                                        email: (parts[0] || '').trim(),
+                                        password: (parts[1] || '').trim(),
+                                        password2: (parts[2] || '').trim()
+                                    };
+                                });
+
+                                return (
+                                    <div className="border border-orange-200/80 dark:border-orange-900/60 rounded-2xl overflow-hidden text-xs">
+                                        <div className="bg-orange-100/70 dark:bg-orange-950/60 px-3.5 py-2 font-bold text-orange-950 dark:text-orange-200 flex items-center justify-between">
+                                            <span className="flex items-center gap-1.5">
+                                                <i className="fa-solid fa-eye text-orange-600"></i>
+                                                معاينة البيانات المكتشفة ({previewLines.length} حساب)
+                                            </span>
+                                            {previewLines.length > 6 && (
+                                                <span className="text-[10.5px] text-orange-700 dark:text-orange-300 font-medium">عرض أول 6 حسابات</span>
+                                            )}
+                                        </div>
+                                        <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-44 overflow-y-auto font-mono text-[11px] bg-white dark:bg-slate-850">
+                                            {parsedRows.map((r, i) => (
+                                                <div key={i} className="p-2.5 flex items-center gap-2 justify-between hover:bg-orange-50/50 dark:hover:bg-slate-800 transition">
+                                                    <span className="font-bold text-slate-800 dark:text-slate-200 truncate flex-1 dir-ltr text-left">
+                                                        {r.email || <span className="text-rose-500 font-sans">(بدون إيميل)</span>}
+                                                    </span>
+                                                    <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 text-[10.5px]">
+                                                        {r.password || '-'}
+                                                    </span>
+                                                    <span className="text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 text-[10.5px]">
+                                                        {r.password2 || '-'}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
                                 <span className="text-xs text-slate-400">
@@ -5137,15 +5286,19 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     <button
                                         type="button"
                                         onClick={() => setShowBulkModal(false)}
-                                        className="px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition"
+                                        className="px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold transition cursor-pointer"
                                     >
                                         إلغاء
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-6 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-lg shadow-purple-600/30 transition transform active:scale-95"
+                                        className={`px-6 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg transition transform active:scale-95 cursor-pointer ${
+                                            currentSheetId === 'account_data_2'
+                                                ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 shadow-orange-600/30'
+                                                : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30'
+                                        }`}
                                     >
-                                        إضافة السجلات
+                                        {currentSheetId === 'account_data_2' ? 'إضافة الحسابات فوراً' : 'إضافة السجلات'}
                                     </button>
                                 </div>
                             </div>
