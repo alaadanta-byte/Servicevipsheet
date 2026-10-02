@@ -13,35 +13,36 @@ export const getLocalUsers = () => {
         if (stored) {
             let parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                // إلغاء وحذف أي حسابات قديمة باسم support@servicevip.com نهائياً
+                // إلغاء وحذف أي حسابات أدمن قديمة نهائياً
+                const obsoleteAdminNames = [
+                    'support@servicevip.com',
+                    'admin@servicevip.com',
+                    'alaa@servicevip.com'
+                ];
                 parsed = parsed.filter(u => {
                     const uName = (u.username || '').toLowerCase();
                     const uEmail = (u.email || '').toLowerCase();
-                    return uName !== 'support@servicevip.com' && uEmail !== 'support@servicevip.com';
+                    if (obsoleteAdminNames.includes(uName) || obsoleteAdminNames.includes(uEmail)) {
+                        return false;
+                    }
+                    // حذف أي حساب أدمن قديم لا يطابق الحساب الجديد Servicevip
+                    if (u.role === 'admin' && uName !== 'servicevip') {
+                        return false;
+                    }
+                    if (u.id === 'admin_root' && uName !== 'servicevip') {
+                        return false;
+                    }
+                    return true;
                 });
 
-                // التأكد من تسجيل حساب الأدمن الجديد وحيداً بصلاحيات كاملة
-                let adminFound = false;
-                parsed.forEach(u => {
-                    const uName = (u.username || '').toLowerCase();
-                    const uEmail = (u.email || '').toLowerCase();
-                    if (uName === 'admin@servicevip.com' || uEmail === 'admin@servicevip.com' || u.role === 'admin' || u.id === 'admin_root') {
-                        if (!adminFound) {
-                            u.username = 'Admin@servicevip.com';
-                            u.email = 'Admin@servicevip.com';
-                            u.password = '01028886947Aa@';
-                            u.role = 'admin';
-                            u.permissions = ['all'];
-                            adminFound = true;
-                        }
-                    }
-                });
-                if (!adminFound) {
+                // التأكد من وجود حساب أدمن بصلاحيات كاملة إن لم يوجد أي أدمن
+                const hasAdmin = parsed.some(u => u.role === 'admin' || (Array.isArray(u.permissions) && u.permissions.includes('all')));
+                if (!hasAdmin) {
                     parsed.unshift({
                         id: 'admin_root',
-                        username: 'Admin@servicevip.com',
-                        email: 'Admin@servicevip.com',
-                        password: '01028886947Aa@',
+                        username: 'Servicevip',
+                        email: 'Servicevip',
+                        password: '01041219966Zx@',
                         role: 'admin',
                         permissions: ['all'],
                         created_at: new Date().toISOString()
@@ -58,9 +59,9 @@ export const getLocalUsers = () => {
     const defaultAdmin = [
         {
             id: 'admin_root',
-            username: 'Admin@servicevip.com',
-            email: 'Admin@servicevip.com',
-            password: '01028886947Aa@',
+            username: 'Servicevip',
+            email: 'Servicevip',
+            password: '01041219966Zx@',
             role: 'admin',
             permissions: ['all'],
             created_at: new Date().toISOString()
@@ -88,6 +89,13 @@ export const authAPI = {
 
         if (!cleanUsername || !cleanPassword) {
             return { status: 'error', message: 'يرجى إدخال اسم المستخدم وكلمة المرور' };
+        }
+
+        // حظر ومنع أي حسابات أو إيميلات قديمة نهائياً
+        const lowerName = cleanUsername.toLowerCase();
+        const blockedNames = ['admin@servicevip.com', 'support@servicevip.com', 'alaa@servicevip.com', 'admin'];
+        if (blockedNames.includes(lowerName)) {
+            return { status: 'error', message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
         }
 
         if (isConfigured) {
@@ -148,7 +156,7 @@ export const authAPI = {
             const uName = (u.username || '').toLowerCase();
             const uMail = (u.email || '').toLowerCase();
             const q = cleanUsername.toLowerCase();
-            return uName === q || uMail === q || (q === 'admin' && u.role === 'admin');
+            return uName === q || uMail === q;
         });
         if (!found) {
             return { status: 'error', message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
@@ -189,6 +197,14 @@ export const authAPI = {
 
     async checkAuth(token) {
         if (!token) return null;
+        const parsePerms = (p) => {
+            if (Array.isArray(p)) return p;
+            if (typeof p === 'string') {
+                try { return JSON.parse(p || '[]'); } catch { return []; }
+            }
+            return [];
+        };
+
         if (isConfigured && !token.startsWith('local-token-')) {
             try {
                 const { data, error } = await supabase
@@ -202,7 +218,7 @@ export const authAPI = {
                         username: data.username,
                         email: data.email || data.username,
                         role: data.role,
-                        permissions: data.permissions || [],
+                        permissions: parsePerms(data.permissions),
                         base_salary: data.base_salary,
                         vodafone_cash: data.vodafone_cash
                     };
@@ -221,7 +237,7 @@ export const authAPI = {
                 username: found.username,
                 email: found.email || found.username,
                 role: found.role || 'moderator',
-                permissions: found.permissions || [],
+                permissions: parsePerms(found.permissions),
                 base_salary: found.base_salary || 0,
                 vodafone_cash: found.vodafone_cash || ''
             };
@@ -800,17 +816,30 @@ export const walletsAPI = {
 // ============ USERS MANAGEMENT ============
 export const usersAPI = {
     async getAll() {
+        const parsePerms = (p) => {
+            if (Array.isArray(p)) return p;
+            if (typeof p === 'string') {
+                try { return JSON.parse(p || '[]'); } catch { return []; }
+            }
+            return [];
+        };
+
         if (isConfigured) {
             try {
                 const { data, error } = await supabase
                     .from('users')
-                    .select('id, username, role, permissions, base_salary, vodafone_cash, created_at')
-                    .order('id', { ascending: true });
+                    .select('id, username, email, role, permissions, base_salary, vodafone_cash, created_at')
+                    .order('created_at', { ascending: true });
                 if (!error && data && data.length > 0) {
-                    return data.map(u => ({
+                    const formatted = data.map(u => ({
                         ...u,
-                        permissions: Array.isArray(u.permissions) ? u.permissions : (typeof u.permissions === 'string' ? JSON.parse(u.permissions || '[]') : [])
+                        email: u.email || u.username,
+                        permissions: parsePerms(u.permissions)
                     }));
+                    try {
+                        saveLocalUsers(formatted);
+                    } catch {}
+                    return formatted;
                 }
             } catch (err) {
                 console.warn('Supabase users getAll failed, using local storage:', err);
@@ -820,79 +849,174 @@ export const usersAPI = {
         return localUsers.map(u => ({
             id: u.id,
             username: u.username,
+            email: u.email || u.username,
             role: u.role || 'moderator',
-            permissions: u.permissions || [],
+            permissions: parsePerms(u.permissions),
+            base_salary: u.base_salary || 0,
+            vodafone_cash: u.vodafone_cash || '',
             created_at: u.created_at || new Date().toISOString()
         }));
     },
 
     async save(userData) {
-        // If updating existing user
+        const cleanUsername = userData.username ? userData.username.trim() : '';
+        const localUsers = getLocalUsers();
+        const existingIdx = userData.id
+            ? localUsers.findIndex(u =>
+                String(u.id) === String(userData.id) ||
+                (userData.oldUsername && u.username && u.username.toLowerCase() === userData.oldUsername.toLowerCase())
+            )
+            : -1;
+        const existingUser = existingIdx !== -1 ? localUsers[existingIdx] : null;
+
+        const role = userData.role !== undefined ? userData.role : (existingUser?.role || 'moderator');
+        const permissions = (role === 'admin')
+            ? ['all']
+            : (userData.permissions !== undefined ? userData.permissions : (existingUser?.permissions || []));
+
+        let bcrypt = null;
+        try {
+            const bcryptModule = await import('bcryptjs');
+            bcrypt = bcryptModule.default || bcryptModule;
+        } catch (e) {
+            console.warn('bcrypt import fallback:', e);
+        }
+
+        // 1. If updating existing user
         if (userData.id) {
+            let hashedPassword = null;
+            if (userData.password && userData.password.trim()) {
+                if (bcrypt && bcrypt.hash) {
+                    try {
+                        hashedPassword = await bcrypt.hash(userData.password.trim(), 10);
+                    } catch (e) {
+                        console.warn('Bcrypt hashing error:', e);
+                    }
+                }
+                if (!hashedPassword) hashedPassword = userData.password.trim();
+            }
+
             if (isConfigured) {
                 try {
                     const updates = {
-                        username: userData.username,
-                        role: userData.role || 'moderator',
-                        permissions: userData.permissions || [],
-                        base_salary: userData.base_salary || 0,
-                        vodafone_cash: userData.vodafone_cash || '',
+                        ...(cleanUsername ? { username: cleanUsername, email: cleanUsername } : {}),
+                        role: role,
+                        permissions: permissions,
+                        ...(userData.base_salary !== undefined ? { base_salary: userData.base_salary } : {}),
+                        ...(userData.vodafone_cash !== undefined ? { vodafone_cash: userData.vodafone_cash } : {}),
                     };
-                    if (userData.password) {
-                        const bcrypt = await import('bcryptjs');
-                        updates.password = await bcrypt.hash(userData.password, 10);
+                    if (hashedPassword) {
+                        updates.password = hashedPassword;
                     }
-                    await supabase.from('users').update(updates).eq('id', userData.id);
+
+                    // Attempt update by ID first
+                    let updateSuccess = false;
+                    const { error } = await supabase.from('users').update(updates).eq('id', userData.id);
+                    if (!error) {
+                        updateSuccess = true;
+                    } else {
+                        console.warn('Supabase update by ID failed, trying fallback by username:', error);
+                        if (userData.oldUsername || cleanUsername) {
+                            const { error: errName } = await supabase.from('users').update(updates).eq('username', userData.oldUsername || cleanUsername);
+                            if (!errName) updateSuccess = true;
+                        }
+                        if (!updateSuccess && role === 'admin') {
+                            await supabase.from('users').update(updates).eq('role', 'admin');
+                        }
+                    }
                 } catch (e) {
                     console.warn('Supabase update user fallback:', e);
                 }
             }
 
-            const localUsers = getLocalUsers();
-            const idx = localUsers.findIndex(u => String(u.id) === String(userData.id));
-            if (idx !== -1) {
-                localUsers[idx] = {
-                    ...localUsers[idx],
-                    username: userData.username.trim(),
-                    role: userData.role || 'moderator',
-                    permissions: userData.permissions || [],
-                    ...(userData.password ? { password: userData.password } : {})
+            // Update in local storage
+            if (existingIdx !== -1) {
+                localUsers[existingIdx] = {
+                    ...localUsers[existingIdx],
+                    ...(cleanUsername ? { username: cleanUsername, email: cleanUsername } : {}),
+                    role: role,
+                    permissions: permissions,
+                    ...(userData.base_salary !== undefined ? { base_salary: userData.base_salary } : {}),
+                    ...(userData.vodafone_cash !== undefined ? { vodafone_cash: userData.vodafone_cash } : {}),
+                    ...(userData.password && userData.password.trim() ? { password: userData.password.trim() } : {})
                 };
+                saveLocalUsers(localUsers);
+            } else {
+                localUsers.push({
+                    id: userData.id,
+                    username: cleanUsername,
+                    email: cleanUsername,
+                    role: role,
+                    permissions: permissions,
+                    base_salary: userData.base_salary || 0,
+                    vodafone_cash: userData.vodafone_cash || '',
+                    ...(userData.password && userData.password.trim() ? { password: userData.password.trim() } : {}),
+                    created_at: new Date().toISOString()
+                });
                 saveLocalUsers(localUsers);
             }
             return;
         }
 
-        // If creating new user
-        const newId = 'u_' + Date.now();
+        // 2. If creating new user
+        let newId = 'u_' + Date.now();
+        let hashedPassword = null;
+        const rawPassword = (userData.password || '123456').trim();
+        if (bcrypt && bcrypt.hash) {
+            try {
+                hashedPassword = await bcrypt.hash(rawPassword, 10);
+            } catch (e) {
+                console.warn('Bcrypt hashing error:', e);
+            }
+        }
+        if (!hashedPassword) hashedPassword = rawPassword;
+
         if (isConfigured) {
             try {
-                const bcrypt = await import('bcryptjs');
-                const hashedPassword = await bcrypt.hash(userData.password || '123456', 10);
-                await supabase.from('users').insert({
-                    username: userData.username.trim(),
+                const insertPayload = {
+                    username: cleanUsername,
+                    email: cleanUsername,
                     password: hashedPassword,
-                    role: userData.role || 'moderator',
-                    permissions: userData.permissions || [],
+                    role: role,
+                    permissions: permissions,
                     base_salary: userData.base_salary || 0,
                     vodafone_cash: userData.vodafone_cash || '',
-                });
+                };
+                const { data: inserted, error: insErr } = await supabase
+                    .from('users')
+                    .insert(insertPayload)
+                    .select('id')
+                    .maybeSingle();
+
+                if (!insErr && inserted?.id) {
+                    newId = inserted.id;
+                } else if (insErr) {
+                    console.warn('Supabase insert user error:', insErr);
+                    if (insErr.code === '23505' || insErr.message?.includes('duplicate key') || insErr.message?.includes('unique constraint')) {
+                        throw new Error('اسم المستخدم مستخدم بالفعل في قاعدة البيانات! يرجى اختيار اسم مستخدم آخر.');
+                    }
+                }
             } catch (e) {
+                if (e.message && e.message.includes('مستخدم بالفعل')) {
+                    throw e;
+                }
                 console.warn('Supabase insert user fallback:', e);
             }
         }
 
-        const localUsers = getLocalUsers();
-        if (localUsers.some(u => u.username.toLowerCase() === userData.username.trim().toLowerCase())) {
+        if (localUsers.some(u => u.username && u.username.toLowerCase() === cleanUsername.toLowerCase())) {
             throw new Error('اسم المستخدم مستخدم بالفعل! يرجى اختيار اسم مستخدم آخر.');
         }
 
         localUsers.push({
             id: newId,
-            username: userData.username.trim(),
-            password: userData.password || '123456',
-            role: userData.role || 'moderator',
-            permissions: userData.permissions || [],
+            username: cleanUsername,
+            email: cleanUsername,
+            password: rawPassword,
+            role: role,
+            permissions: permissions,
+            base_salary: userData.base_salary || 0,
+            vodafone_cash: userData.vodafone_cash || '',
             created_at: new Date().toISOString()
         });
         saveLocalUsers(localUsers);
@@ -902,7 +1026,9 @@ export const usersAPI = {
         if (isConfigured) {
             try {
                 await supabase.from('users').delete().eq('id', id);
-            } catch {}
+            } catch (e) {
+                console.warn('Supabase delete user error:', e);
+            }
         }
         const localUsers = getLocalUsers();
         const filtered = localUsers.filter(u => String(u.id) !== String(id));

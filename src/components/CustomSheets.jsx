@@ -381,6 +381,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const serviceDropdownRef = useRef(null);
     const [isAccountEmailDropdownOpen, setIsAccountEmailDropdownOpen] = useState(false);
     const accountEmailDropdownRef = useRef(null);
+    const [accountFilterSource, setAccountFilterSource] = useState('all'); // 'all', 'account_data', 'account_data_2'
     const [expiryFilter, setExpiryFilter] = useState('all'); // 'all', 'near', 'expired', 'active'
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
     const [saleMenuAnchor, setSaleMenuAnchor] = useState(null); // { id, saleStatus, isSold, recordEmail }
@@ -442,47 +443,66 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
     const refreshAvailableAccounts = () => {
         try {
-            const targetAccountSheetId = (currentSheetId === 'client_data_2' || currentSheetId === 'account_data_2')
-                ? 'account_data_2'
-                : 'account_data';
-            const key = `${STORAGE_PREFIX}${targetAccountSheetId}`;
-            const raw = localStorage.getItem(key);
-            let parsed = [];
-            if (raw) {
-                try { parsed = JSON.parse(raw); } catch {}
-            }
-            if (Array.isArray(parsed)) {
-                // Get client records to calculate live device usage per account
-                let clientRecs = [];
-                let merchantRecs = [];
-                if (targetAccountSheetId === 'account_data_2') {
+            const isClient2 = currentSheetId === 'client_data_2';
+            const targetSheetIds = isClient2
+                ? ['account_data', 'account_data_2']
+                : [(currentSheetId === 'account_data_2' ? 'account_data_2' : 'account_data')];
+
+            let allParsed = [];
+            targetSheetIds.forEach(targetSheetId => {
+                const key = `${STORAGE_PREFIX}${targetSheetId}`;
+                const raw = localStorage.getItem(key);
+                if (raw) {
                     try {
-                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
-                        if (cRaw) clientRecs = JSON.parse(cRaw);
-                    } catch {}
-                    merchantRecs = [];
-                } else {
-                    try {
-                        const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
-                        if (cRaw) clientRecs = JSON.parse(cRaw);
-                    } catch {}
-                    try {
-                        const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
-                        if (mRaw) merchantRecs = JSON.parse(mRaw);
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((item, idx) => {
+                                allParsed.push({ ...item, _sourceSheetId: targetSheetId, _origIdx: idx });
+                            });
+                        }
                     } catch {}
                 }
+            });
 
-                const sanitized = parsed.map((a, i) => {
+            if (allParsed.length > 0) {
+                // Get client records to calculate live device usage per account
+                let clientRecs1 = [];
+                let clientRecs2 = [];
+                let merchantRecs = [];
+                try {
+                    const cRaw1 = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                    if (cRaw1) clientRecs1 = JSON.parse(cRaw1);
+                } catch {}
+                try {
+                    const cRaw2 = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                    if (cRaw2) clientRecs2 = JSON.parse(cRaw2);
+                } catch {}
+                try {
+                    const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                    if (mRaw) merchantRecs = JSON.parse(mRaw);
+                } catch {}
+
+                const sanitized = allParsed.map((a, i) => {
                     const clean = sanitizeRecord(a, i);
                     if (!clean) return null;
                     const em = (clean.email || '').trim().toLowerCase();
-                    const matches = (clientRecs || []).filter(r => {
+
+                    // Usage across relevant sheets:
+                    // If account belongs to account_data (Sheet 1), check client_data (and client_data_2 if on client_data_2)
+                    // If account belongs to account_data_2 (Sheet 2), check client_data_2
+                    const relevantClients = a._sourceSheetId === 'account_data_2'
+                        ? (clientRecs2 || [])
+                        : isClient2
+                        ? [...(clientRecs1 || []), ...(clientRecs2 || [])]
+                        : (clientRecs1 || []);
+
+                    const matches = relevantClients.filter(r => {
                         if (!r) return false;
                         const rAcc = (r.selectedAccount || '').trim().toLowerCase();
                         const rEm = (r.email || '').trim().toLowerCase();
                         return rAcc === em || rEm === em;
                     });
-                    const inMerchant = (merchantRecs || []).some(r => {
+                    const inMerchant = (a._sourceSheetId === 'account_data') && (merchantRecs || []).some(r => {
                         if (!r) return false;
                         const rAcc = (r.selectedAccount || '').trim().toLowerCase();
                         const rEm = (r.email || '').trim().toLowerCase();
@@ -503,6 +523,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
 
                     return {
                         ...clean,
+                        _sourceSheetId: a._sourceSheetId,
                         _usage: {
                             clientMatchesCount: matches.length,
                             hasFullOr2Dev,
@@ -540,6 +561,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                             if (cRaw) clientRecs = JSON.parse(cRaw);
                         } catch {}
                         try {
+                            const c2Raw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                            if (c2Raw) {
+                                const c2Parsed = JSON.parse(c2Raw);
+                                if (Array.isArray(c2Parsed)) clientRecs = [...clientRecs, ...c2Parsed];
+                            }
+                        } catch {}
+                        try {
                             const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
                             if (mRaw) merchantRecs = JSON.parse(mRaw);
                         } catch {}
@@ -568,6 +596,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     try {
                         const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
                         if (cRaw) clientRecs = JSON.parse(cRaw);
+                    } catch {}
+                    try {
+                        const c2Raw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                        if (c2Raw) {
+                            const c2Parsed = JSON.parse(c2Raw);
+                            if (Array.isArray(c2Parsed)) clientRecs = [...clientRecs, ...c2Parsed];
+                        }
                     } catch {}
                     try {
                         const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
@@ -699,25 +734,59 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     const syncAccountsFromClientData = async (changedSheetId, changedRecords) => {
         try {
             if (changedSheetId === 'client_data_2') {
-                const accKey = `${STORAGE_PREFIX}account_data_2`;
-                let accList = [];
-                const rawAcc = localStorage.getItem(accKey);
-                if (rawAcc) {
-                    try { accList = JSON.parse(rawAcc); } catch {}
+                // 1. Sync account_data_2
+                const accKey2 = `${STORAGE_PREFIX}account_data_2`;
+                let accList2 = [];
+                const rawAcc2 = localStorage.getItem(accKey2);
+                if (rawAcc2) {
+                    try { accList2 = JSON.parse(rawAcc2); } catch {}
                 }
-                if (!Array.isArray(accList) || accList.length === 0) {
-                    accList = await sheetsAPI.getSheetRecords('account_data_2');
+                if (!Array.isArray(accList2) || accList2.length === 0) {
+                    accList2 = await sheetsAPI.getSheetRecords('account_data_2');
                 }
-                if (!Array.isArray(accList) || accList.length === 0) return;
-
-                const { updated, updatedCount } = autoSyncAccountsStatus(accList, changedRecords, []);
-                if (updatedCount > 0) {
-                    localStorage.setItem(accKey, JSON.stringify(updated));
-                    sheetsAPI.saveSheetRecords('account_data_2', updated);
-                    if (currentSheetId === 'account_data_2') {
-                        setRecords(updated);
+                if (Array.isArray(accList2) && accList2.length > 0) {
+                    const { updated: up2, updatedCount: uc2 } = autoSyncAccountsStatus(accList2, changedRecords, []);
+                    if (uc2 > 0) {
+                        localStorage.setItem(accKey2, JSON.stringify(up2));
+                        sheetsAPI.saveSheetRecords('account_data_2', up2);
+                        if (currentSheetId === 'account_data_2') {
+                            setRecords(up2);
+                        }
                     }
                 }
+
+                // 2. Also sync account_data (Sheet 1) in case accounts from Sheet 1 are used in client_data_2
+                const accKey1 = `${STORAGE_PREFIX}account_data`;
+                let accList1 = [];
+                const rawAcc1 = localStorage.getItem(accKey1);
+                if (rawAcc1) {
+                    try { accList1 = JSON.parse(rawAcc1); } catch {}
+                }
+                if (!Array.isArray(accList1) || accList1.length === 0) {
+                    accList1 = await sheetsAPI.getSheetRecords('account_data');
+                }
+                if (Array.isArray(accList1) && accList1.length > 0) {
+                    let clientRecs1 = [];
+                    let merchantRecs = [];
+                    try {
+                        const cRaw1 = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                        if (cRaw1) clientRecs1 = JSON.parse(cRaw1);
+                    } catch {}
+                    try {
+                        const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
+                        if (mRaw) merchantRecs = JSON.parse(mRaw);
+                    } catch {}
+                    const combinedClients = [...(clientRecs1 || []), ...changedRecords];
+                    const { updated: up1, updatedCount: uc1 } = autoSyncAccountsStatus(accList1, combinedClients, merchantRecs);
+                    if (uc1 > 0) {
+                        localStorage.setItem(accKey1, JSON.stringify(up1));
+                        sheetsAPI.saveSheetRecords('account_data', up1);
+                        if (currentSheetId === 'account_data') {
+                            setRecords(up1);
+                        }
+                    }
+                }
+
                 refreshAvailableAccounts();
                 return;
             }
@@ -742,6 +811,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                     if (cRaw) clientRecs = JSON.parse(cRaw);
                 } catch {}
             }
+            // Include client_data_2 records when syncing Sheet 1 account_data
+            try {
+                const c2Raw = localStorage.getItem(`${STORAGE_PREFIX}client_data_2`);
+                if (c2Raw) {
+                    const c2Parsed = JSON.parse(c2Raw);
+                    if (Array.isArray(c2Parsed)) clientRecs = [...clientRecs, ...c2Parsed];
+                }
+            } catch {}
+
             if (changedSheetId !== 'merchant_data') {
                 try {
                     const mRaw = localStorage.getItem(`${STORAGE_PREFIX}merchant_data`);
@@ -1440,7 +1518,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
     // Import full account data from "بيانات الحساب" into form
     const handleSelectAccountData = (acc) => {
         if (!acc) return;
-        if (currentSheetId === 'client_data') {
+        if (currentSheetId === 'client_data' || currentSheetId === 'client_data_2') {
             const usage = acc._usage;
             if (usage?.isMaxedOut) {
                 showToast(`عذراً: هذا الحساب مستخدم بالكامل (${usage.hasFullOr2Dev ? 'شامل / جهازين' : 'جهازين'}) ولا يمكن اختياره مجدداً ❌`, 'error');
@@ -1805,6 +1883,70 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
             setShowBulkModal(false);
             refreshAvailableAccounts();
         }
+    };
+
+    // Import / copy client records from client_data (Sheet 1) into client_data_2 (ادوبي غير مسجل)
+    const handleImportClientsFromSheet1 = async () => {
+        if (!canAdd) {
+            showToast('ليس لديك صلاحية إضافة سجلات', 'warning');
+            return;
+        }
+        showConfirm({
+            title: 'استيراد بيانات العملاء من شيت 1',
+            message: 'هل تريد نسخ واستيراد سجلات العملاء المسجلة في شيت 1 (بيانات العميل) إلى هذا الشيت (ادوبي غير مسجل)؟ لن يتم تكرار السجلات الموجودة بالفعل.',
+            confirmText: 'نعم، استيراد السجلات',
+            cancelText: 'إلغاء',
+            confirmButtonClass: 'bg-amber-600 hover:bg-amber-700 text-white',
+            onConfirm: async () => {
+                try {
+                    let sheet1Recs = [];
+                    const cRaw = localStorage.getItem(`${STORAGE_PREFIX}client_data`);
+                    if (cRaw) {
+                        try { sheet1Recs = JSON.parse(cRaw); } catch {}
+                    }
+                    if (!Array.isArray(sheet1Recs) || sheet1Recs.length === 0) {
+                        sheet1Recs = (await sheetsAPI.getSheetRecords('client_data')) || [];
+                    }
+                    if (!Array.isArray(sheet1Recs) || sheet1Recs.length === 0) {
+                        showToast('لا توجد سجلات في شيت 1 (بيانات العميل) لاستيرادها', 'warning');
+                        return;
+                    }
+
+                    // Existing records in client_data_2
+                    const existingKeys = new Set(
+                        records.map(r => `${(r.email || '').trim().toLowerCase()}_${(r.selectedAccount || '').trim().toLowerCase()}_${r.deviceType || ''}`)
+                    );
+
+                    const newToImport = [];
+                    sheet1Recs.forEach((r, idx) => {
+                        const key = `${(r.email || '').trim().toLowerCase()}_${(r.selectedAccount || '').trim().toLowerCase()}_${r.deviceType || ''}`;
+                        if (!existingKeys.has(key)) {
+                            newToImport.push({
+                                ...sanitizeRecord(r, idx),
+                                id: 'REC-C2-' + Date.now() + '-' + idx + '-' + Math.random().toString(36).substring(2, 6),
+                                originSheetId: 'client_data_2',
+                                originSheetName: 'ادوبي غير مسجل',
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            });
+                            existingKeys.add(key);
+                        }
+                    });
+
+                    if (newToImport.length === 0) {
+                        showToast('جميع سجلات شيت 1 مسجلة بالفعل في ادوبي غير مسجل ✓', 'info');
+                        return;
+                    }
+
+                    const combined = [...newToImport, ...records];
+                    saveRecords(combined);
+                    showToast(`تم استيراد ${newToImport.length} سجل عميل من شيت 1 بنجاح ✓`, 'success');
+                } catch (e) {
+                    console.error('Error importing clients from Sheet 1:', e);
+                    showToast('حدث خطأ أثناء استيراد السجلات', 'error');
+                }
+            }
+        });
     };
 
     // Export to Excel
@@ -2633,7 +2775,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     : currentSheetId === 'client_data'
                                     ? 'بيانات العميل (شيت 1): إدارة وحفظ بيانات عملاء الخدمة المسجلين في بيانات الحساب محلياً'
                                     : currentSheetId === 'client_data_2'
-                                    ? 'ادوبي غير مسجل: إدارة وحفظ بيانات عملاء الخدمة المرتبطة بقاعدة بيانات الحساب 2'
+                                    ? 'ادوبي غير مسجل (شيت 2): إدارة وحفظ بيانات عملاء الخدمة ومواعيد الاشتراكات المرتبطة ببيانات الحساب'
                                     : currentSheetId === 'account_data_2'
                                     ? 'بيانات الحساب 2: قاعدة بيانات حسابات خاصة ومستقلة لعملاء شيت 2'
                                     : currentSheetId === 'account_data'
@@ -2733,6 +2875,19 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                     <i className="fa-solid fa-layer-group"></i>
                                     <span>{currentSheetId === 'account_data_2' ? 'إضافة مجموعة بيانات' : 'إضافة مجمعة'}</span>
                                 </button>
+
+                                {/* زر استيراد بيانات العملاء من شيت 1 (لادوبي غير مسجل) */}
+                                {currentSheetId === 'client_data_2' && canAdd && (
+                                    <button
+                                        type="button"
+                                        onClick={handleImportClientsFromSheet1}
+                                        className="bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 px-3.5 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 shadow-xs transition transform active:scale-95 cursor-pointer"
+                                        title="نسخ واستيراد بيانات وسجلات العملاء من شيت 1 (بيانات العميل)"
+                                    >
+                                        <i className="fa-solid fa-file-import text-amber-600 dark:text-amber-400"></i>
+                                        <span>استيراد بيانات من شيت 1</span>
+                                    </button>
+                                )}
                                 </>
                             )
                         )}
@@ -4191,7 +4346,7 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 setIsAccountEmailDropdownOpen(prev => !prev);
                                             }}
                                             className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 px-2.5 py-0.5 rounded-full border border-indigo-200/70 dark:border-indigo-800/60 transition cursor-pointer"
-                                            title="فتح قائمة الحسابات من شيت (بيانات الحساب) لاستيراد بياناتها"
+                                            title={currentSheetId === 'client_data_2' ? "فتح قائمة الحسابات المتاحة لاستيراد بياناتها" : "فتح قائمة الحسابات من شيت (بيانات الحساب) لاستيراد بياناتها"}
                                         >
                                             <i className="fa-solid fa-shield-halved text-[10px]"></i>
                                             <span>استيراد من بيانات الحساب ({availableAccounts.length})</span>
@@ -4241,13 +4396,13 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                         </button>
                                     )}
 
-                                    {/* Dropdown Menu of Accounts from "بيانات الحساب" */}
+                                    {/* Dropdown Menu of Accounts */}
                                     {isClientOrMerchant && isAccountEmailDropdownOpen && (
                                         <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50 animate-fade-in max-h-64 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                                             <div className="p-2.5 bg-slate-50 dark:bg-slate-850/90 flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 border-b border-slate-200/80 dark:border-slate-700/80 sticky top-0 z-10 backdrop-blur-xs">
                                                 <span className="flex items-center gap-1.5">
                                                     <i className="fa-solid fa-shield-halved text-indigo-500"></i>
-                                                    <span>اختر حساباً من (بيانات الحساب) لاستيراد بياناته:</span>
+                                                    <span>{currentSheetId === 'client_data_2' ? 'اختر حساباً لاستيراد بياناته:' : 'اختر حساباً من (بيانات الحساب) لاستيراد بياناته:'}</span>
                                                 </span>
                                                 <button
                                                     type="button"
@@ -4258,17 +4413,60 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                 </button>
                                             </div>
 
+                                            {/* Source Filter Tabs for client_data_2 (شيت 1 vs شيت 2) */}
+                                            {currentSheetId === 'client_data_2' && (
+                                                <div className="p-1.5 bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 flex items-center gap-1 text-[11px] sticky top-[41px] z-10">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAccountFilterSource('all')}
+                                                        className={`flex-1 py-1 px-2 rounded-lg font-bold transition text-center select-none cursor-pointer ${
+                                                            accountFilterSource === 'all'
+                                                                ? 'bg-indigo-600 text-white shadow-xs'
+                                                                : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        الكل ({availableAccounts.length})
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAccountFilterSource('account_data')}
+                                                        className={`flex-1 py-1 px-2 rounded-lg font-bold transition text-center select-none cursor-pointer ${
+                                                            accountFilterSource === 'account_data'
+                                                                ? 'bg-blue-600 text-white shadow-xs'
+                                                                : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        شيت 1 ({availableAccounts.filter(a => a._sourceSheetId === 'account_data').length})
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAccountFilterSource('account_data_2')}
+                                                        className={`flex-1 py-1 px-2 rounded-lg font-bold transition text-center select-none cursor-pointer ${
+                                                            accountFilterSource === 'account_data_2'
+                                                                ? 'bg-orange-600 text-white shadow-xs'
+                                                                : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        شيت 2 ({availableAccounts.filter(a => a._sourceSheetId === 'account_data_2').length})
+                                                    </button>
+                                                </div>
+                                            )}
+
                                             {availableAccounts.length === 0 ? (
                                                 <div className="p-4 text-center text-xs text-slate-400">
                                                     <i className="fa-solid fa-circle-exclamation text-amber-500 mb-1 text-base block"></i>
-                                                    <span>لا توجد حسابات مسجلة في شيت «بيانات الحساب» بعد</span>
+                                                    <span>لا توجد حسابات مسجلة في قاعدة بيانات الحسابات بعد</span>
                                                 </div>
                                             ) : (
                                                 (() => {
                                                     const searchLower = (formData.email || '').trim().toLowerCase();
-                                                    const filtered = searchLower
-                                                        ? availableAccounts.filter(a => (a.email && a.email.toLowerCase().includes(searchLower)) || (a.notes && a.notes.toLowerCase().includes(searchLower)))
+                                                    const sourceFiltered = currentSheetId === 'client_data_2' && accountFilterSource !== 'all'
+                                                        ? availableAccounts.filter(a => a._sourceSheetId === accountFilterSource)
                                                         : availableAccounts;
+
+                                                    const filtered = searchLower
+                                                        ? sourceFiltered.filter(a => (a.email && a.email.toLowerCase().includes(searchLower)) || (a.notes && a.notes.toLowerCase().includes(searchLower)))
+                                                        : sourceFiltered;
 
                                                     if (filtered.length === 0) {
                                                         return (
@@ -4282,8 +4480,8 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                         const isCurrent = formData.email && acc.email && formData.email.toLowerCase() === acc.email.toLowerCase();
                                                         const accStatus = getAccountSaleStatus(acc);
                                                         const usage = acc._usage || {};
-                                                        const isMaxedOut = currentSheetId === 'client_data' && (usage.isMaxedOut || accStatus === 'full' || accStatus === 'double');
-                                                        const canAddOneDevice = currentSheetId === 'client_data' && !isMaxedOut && (usage.canAddOneDevice || accStatus === 'single');
+                                                        const isMaxedOut = (currentSheetId === 'client_data' || currentSheetId === 'client_data_2') && (usage.isMaxedOut || accStatus === 'full' || accStatus === 'double');
+                                                        const canAddOneDevice = (currentSheetId === 'client_data' || currentSheetId === 'client_data_2') && !isMaxedOut && (usage.canAddOneDevice || accStatus === 'single');
 
                                                         return (
                                                             <button
@@ -4324,6 +4522,15 @@ export default function CustomSheets({ activeSheetId, setActiveSheetId }) {
                                                                         <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 truncate dir-ltr text-right block select-all">
                                                                             {acc.email}
                                                                         </span>
+                                                                        {currentSheetId === 'client_data_2' && acc._sourceSheetId && (
+                                                                            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold border ${
+                                                                                acc._sourceSheetId === 'account_data'
+                                                                                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                                                                                    : 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800'
+                                                                            }`}>
+                                                                                {acc._sourceSheetId === 'account_data' ? 'شيت 1' : 'شيت 2'}
+                                                                            </span>
+                                                                        )}
                                                                         {isMaxedOut ? (
                                                                             <span className="px-2 py-0.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 text-[9.5px] font-black flex items-center gap-1 border border-rose-300 dark:border-rose-800">
                                                                                 <i className="fa-solid fa-circle-xmark text-rose-500"></i>

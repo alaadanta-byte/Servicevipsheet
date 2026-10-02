@@ -16,7 +16,17 @@ export const AuthProvider = ({ children }) => {
             const sessionToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
             const sessionUser = sessionStorage.getItem(SESSION_USER_KEY);
             if (sessionToken && sessionUser) {
-                return JSON.parse(sessionUser);
+                const parsed = JSON.parse(sessionUser);
+                const uName = (parsed?.username || '').toLowerCase();
+                const uMail = (parsed?.email || '').toLowerCase();
+                const blocked = ['admin@servicevip.com', 'support@servicevip.com', 'alaa@servicevip.com', 'admin'];
+                if (blocked.includes(uName) || blocked.includes(uMail)) {
+                    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+                    sessionStorage.removeItem(SESSION_USER_KEY);
+                    localStorage.removeItem('sv_users');
+                    return null;
+                }
+                return parsed;
             }
             return null;
         } catch {
@@ -107,6 +117,12 @@ export const AuthProvider = ({ children }) => {
     }, [verifySession]);
 
     const login = async (username, password) => {
+        const cleanUser = (username || '').trim().toLowerCase();
+        const forbidden = ['admin@servicevip.com', 'support@servicevip.com', 'alaa@servicevip.com', 'admin'];
+        if (forbidden.includes(cleanUser)) {
+            return { success: false, message: 'اسم المستخدم أو كلمة المرور غير صحيحة' };
+        }
+
         try {
             const result = await authAPI.login(username, password);
             if (result && result.status === 'success') {
@@ -122,6 +138,18 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // تحديث بيانات المستخدم الحالي فوراً في الذاكرة والجلسة عند تعديلها
+    const updateCurrentUser = useCallback((fields) => {
+        setUser((prev) => {
+            if (!prev) return null;
+            const updated = { ...prev, ...fields };
+            try {
+                sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(updated));
+            } catch {}
+            return updated;
+        });
+    }, []);
+
     const hasPermission = (perm) => {
         if (!user) return false;
         if (user.role === 'admin' || (Array.isArray(user.permissions) && user.permissions.includes('all'))) return true;
@@ -130,7 +158,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, logoutAll, verifySession, hasPermission, loading }}>
+        <AuthContext.Provider value={{ user, updateCurrentUser, login, logout, logoutAll, verifySession, hasPermission, loading }}>
             {children}
         </AuthContext.Provider>
     );

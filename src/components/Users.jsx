@@ -43,7 +43,7 @@ export const PERMISSIONS_SECTIONS = [
 export const ALL_PERMISSIONS = PERMISSIONS_SECTIONS.flatMap(s => s.permissions);
 
 export default function Users () {
-    const { user: authUser, logoutAll } = useAuth();
+    const { user: authUser, logoutAll, updateCurrentUser } = useAuth();
     const { showConfirm, showAlert } = useConfirm();
 
     const [users, setUsers] = useState([]);
@@ -176,6 +176,7 @@ export default function Users () {
 
             const payload = {
                 id: editingUser?.id,
+                oldUsername: editingUser?.username,
                 username: trimmedName,
                 role: formRole,
                 permissions: finalPermissions,
@@ -183,13 +184,28 @@ export default function Users () {
             };
 
             await usersAPI.save(payload);
+
+            // تحديث بيانات الجلسة الحالية فوراً إذا كان المستخدم المعدل هو المستخدم المسجل حالياً (مثل الأدمن)
+            const isSelf = editingUser && (
+                editingUser.username === authUser?.username ||
+                String(editingUser.id) === String(authUser?.id)
+            );
+            if (isSelf && updateCurrentUser) {
+                updateCurrentUser({
+                    username: trimmedName,
+                    email: trimmedName,
+                    role: formRole,
+                    permissions: finalPermissions
+                });
+            }
+
             setShowModal(false);
             await showAlert({
                 title: 'تم بنجاح!',
-                message: editingUser ? 'تم تحديث بيانات وصلاحيات المستخدم بنجاح.' : 'تم إنشاء المستخدم الجديد وتعيين صلاحياته بنجاح.',
+                message: editingUser ? 'تم حفظ وتحديث بيانات وصلاحيات المستخدم فوراً.' : 'تم إنشاء المستخدم الجديد وتعيين صلاحياته بنجاح.',
                 type: 'success'
             });
-            fetchUsers();
+            await fetchUsers();
         } catch (err) {
             console.error(err);
             await showAlert({

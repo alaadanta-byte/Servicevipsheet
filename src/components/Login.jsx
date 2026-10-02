@@ -12,6 +12,14 @@ export default function Login () {
         setIsLoading(true);
         setError('');
 
+        const cleanUser = (creds.username || '').trim().toLowerCase();
+        const forbidden = ['admin@servicevip.com', 'support@servicevip.com', 'alaa@servicevip.com', 'admin'];
+        if (forbidden.includes(cleanUser)) {
+            setError('البريد الإلكتروني أو كلمة المرور خطأ');
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const result = await login(creds.username, creds.password);
             if (!result.success) {
